@@ -4,8 +4,8 @@
 
 #include "SDL.h"
 
-#define MAP_WIDTH 20
-#define MAP_HEIGHT 20
+#define MAP_WIDTH 19
+#define MAP_HEIGHT 19
 
 typedef struct {
     Vector pos; // player position
@@ -16,36 +16,35 @@ typedef struct {
 static Player player;
 
 static char map[MAP_HEIGHT][MAP_WIDTH] =
-    {"####################",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "#..................#",
-     "####################"};
+    {"###################",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#........@........#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "#.................#",
+     "###################"};
 
 int screenWidth;
 int screenHeight;
 
 void init_game()
 {
-    player.pos.x = 10.0f;
-    player.pos.y = 10.0f;
+    player.pos.x = 9.0f;
+    player.pos.y = 9.0f;
     player.dir = 0.0f;
-    player.fov = to_radians(90); // FOV is 90 degrees (math.pi / 2 in radians)
+    player.fov = to_radians(66); // FOV is 90 degrees (math.pi / 2 in radians)
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 }
@@ -53,6 +52,7 @@ void init_game()
 int tick_game()
 {
     int playing = 1;
+    int debug = 0;
 
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -62,6 +62,7 @@ int tick_game()
 
         if (e.type == SDL_KEYDOWN)
         {
+            debug = 1;
             switch (e.key.keysym.sym)
             {
                 case SDLK_w:
@@ -96,8 +97,8 @@ int tick_game()
 
     clear_rects();
 
-    // TODO detect which squares the player can see, and draw them proportionally to distance
-    for (int x = 0; x < screenWidth; ++x)
+    // detect which squares the player can see, and draw them proportionally to distance
+    for (int x = 0; x <= screenWidth; ++x)
     {
         Vector rayPos;
         rayPos.x = player.pos.x;
@@ -115,20 +116,33 @@ int tick_game()
             if (map[(int) rayPos.y][(int) rayPos.x] == '#')
             {
                 // TODO hit a wall, detect what side of the wall
+                rayPos.x = floor(rayPos.x);
+                rayPos.y = floor(rayPos.y);
                 hit = 1;
                 break;
             }
 
             // increment rayPos along rayDir, TODO do we need to move in less increments?
-            rayPos.x += cos(rayDir);
-            rayPos.y += sin(rayDir);
+            rayPos.x += cos(rayDir) / 4;
+            rayPos.y += sin(rayDir) / 4;
         }
 
         if (hit)
         {
+            // calculate proportional distance (corrects for fisheye effect)
+            /* float propDist = distance(rayPos, player.pos) * cos(rayDir - player.dir); */
+            // more efficient way:
+            // delta x = d * cos(rayDir.x), delta y = d * cos(rayDir.y)
+            // which expands into:
+            float propDist = cos(player.dir) * (rayPos.x - player.pos.x) + sin(player.dir) * (rayPos.y - player.pos.y);
+            if (debug)
+            printf("ray pos: (%f, %f), player pos: (%f, %f), player.dir: %f, rayDir: %f, distance: %f, proportional distance: %f\n", 
+                    rayPos.x, rayPos.y,
+                    player.pos.x, player.pos.y,
+                    player.dir, rayDir, distance(rayPos, player.pos), propDist);
+
             // calculate wall proportion percentage
-            float dist = distance(player.pos, rayPos);
-            float proportion = 1 - (dist / (float) MAP_WIDTH);
+            float proportion = 1 - (propDist / (float) MAP_WIDTH);
             if (proportion < 0)
                 proportion = 0;
 

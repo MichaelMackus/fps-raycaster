@@ -18,8 +18,16 @@ float to_radians(float degrees)
     return degrees * radiansPerDegree;
 }
 
+// convert radians to degrees
+float to_degrees(float radians)
+{
+    float degreesPerRadian = 180 / PI;
+
+    return radians * degreesPerRadian;
+}
+
 // calculate distance between vectors
-float distance (Vector from, Vector to)
+float distance(Vector from, Vector to)
 {
     return sqrt(pow(to.x - from.x, 2) +
             pow(to.y - from.y, 2));
