@@ -1,5 +1,5 @@
 PROGRAM = raycast
-OBJS = main.o draw.o
+OBJS = main.o draw.o game.o
 CCFLAGS = -I/usr/include/SDL2
 LDFLAGS = -lSDL2
 
