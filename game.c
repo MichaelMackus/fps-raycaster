@@ -108,6 +108,7 @@ int tick_game()
         float rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth);
 
         // increment ray pos until we hit wall, *or* go past map bounds
+        // TODO calculate deltaStepY and deltaStepX for each side, this way we don't need rounding!
         int hit = 0;
         int side;
         while (rayPos.x > 0.0f && rayPos.x < (float) MAP_WIDTH &&
@@ -142,7 +143,7 @@ int tick_game()
                     player.dir, rayDir, distance(rayPos, player.pos), propDist);
 
             // calculate wall proportion percentage
-            float proportion = 1 - (propDist / (float) MAP_WIDTH);
+            float proportion = 1 / propDist;
             if (proportion < 0)
                 proportion = 0;
 
