@@ -43,6 +43,7 @@ int main()
     }
 
     // game loop
+    init_game();
     while (tick_game())
     {
     }

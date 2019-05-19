@@ -1,7 +1,7 @@
 PROGRAM = raycast
 OBJS = main.o draw.o game.o
 CCFLAGS = -I/usr/include/SDL2
-LDFLAGS = -lSDL2
+LDFLAGS = -lSDL2 -lm
 
 $(PROGRAM): $(OBJS)
 	gcc -o $(PROGRAM) $(CCFLAGS) $(OBJS) $(LDFLAGS)

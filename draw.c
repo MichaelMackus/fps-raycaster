@@ -19,12 +19,13 @@ static int rect_count = 0; // amount of textures
 static int rect_size = 100; // size of textures array
 
 int _realloc_rects(int size);
-int draw_init(SDL_Window *window, SDL_Renderer *r)
+int draw_init(SDL_Window *win, SDL_Renderer *r)
 {
     if (r == NULL)
         return 1;
 
     renderer = r;
+    window = win;
 
     // get width & height for texture
     int w;
@@ -74,6 +75,11 @@ int draw_update()
     return 0;
 }
 
+void get_screen_dimensions(int *w, int *h)
+{
+    SDL_GetWindowSize(window, w, h);
+}
+
 int draw_rect(int x, int y, int w, int h,
         Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
@@ -100,7 +106,7 @@ int draw_rect(int x, int y, int w, int h,
     return 0;
 }
 
-int draw_clear_rects()
+int clear_rects()
 {
     // for now, just reset count
     rect_count = 0;

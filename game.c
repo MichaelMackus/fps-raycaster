@@ -1,17 +1,55 @@
 #include "draw.h"
 #include "game.h"
 
+#include "math.h"
 #include "SDL.h"
 
-#define MAP_WIDTH 100
-#define MAP_HEIGHT 100
+#define MAP_WIDTH 20
+#define MAP_HEIGHT 20
 
-static float x = 0.0f;
-static float y = 0.0f;
-static float rectX = 50.0f;
-static float rectY = 0.0f;
-static int rectW = 700;
-static int rectH = 500;
+typedef struct {
+    float x; // position in x
+    float y; // position in y
+    float dir; // angle player is facing
+    int fov; // field of view
+} Player;
+
+static Player player;
+
+static char map[MAP_HEIGHT][MAP_WIDTH] =
+    {"####################",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "#..................#",
+     "####################"};
+
+int screenWidth;
+int screenHeight;
+
+void init_game()
+{
+    player.x = 10.0f;
+    player.y = 10.0f;
+    player.dir = 0.0f;
+    player.fov = 90;
+
+    get_screen_dimensions(&screenWidth, &screenHeight);
+}
 
 int tick_game()
 {
@@ -28,32 +66,50 @@ int tick_game()
             switch (e.key.keysym.sym)
             {
                 case SDLK_w:
-                    // "zoom in" rectangle
-                    x += 1.0f;
+                    // walk forward in unit circle (unit circle x = cos, y = sin)
+                    player.x += cos(player.dir);
+                    player.y += sin(player.dir);
                     break;
 
                 case SDLK_s:
-                    // "zoom out" rectangle
-                    x -= 1.0f;
+                    // walk backward in unit circle (unit circle x = cos, y = sin)
+                    player.x -= cos(player.dir);
+                    player.y -= sin(player.dir);
+                    break;
+
+                case SDLK_a:
+                    // turn left
+                    player.dir -= 1;
+                    break;
+
+                case SDLK_d:
+                    // turn right
+                    player.dir = 1;
                     break;
 
                 case SDLK_q:
                     playing = 0;
                     break;
             }
+            printf("X: %f, Y: %f, Dir: %f\n", player.x, player.y, player.dir);
         }
     }
 
-    draw_clear_rects();
+    clear_rects();
 
-    // draw rectangle center of screen with depth
-    int distance = abs(rectX - x);
-    float proportion = 1 - ((float) distance / (float) MAP_WIDTH);
-    if (proportion < 0)
-        proportion = 0;
-    draw_rect(50, 50,
-            (int) rectW * proportion, (int) rectH * proportion,
-            0, 255, 255, 255);
+    // TODO detect which squares the player can see, and draw them proportionally to distance
+    for (int x = 0; x < screenWidth; ++x)
+    {
+        
+    }
+
+    /* int distance = abs(rectX - x); */
+    /* float proportion = 1 - ((float) distance / (float) MAP_WIDTH); */
+    /* if (proportion < 0) */
+    /*     proportion = 0; */
+    /* draw_rect(50, 50, */
+    /*         (int) rectW * proportion, (int) rectH * proportion, */
+    /*         0, 255, 255, 255); */
 
     draw_update();
     
