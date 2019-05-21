@@ -55,13 +55,16 @@ int main()
         unsigned int time = SDL_GetTicks();
         unsigned int diff = time - lastTime;
         double fps = 1 / (diff / 1000.0f);
+        // sleep if FPS > MAX_FPS
+        while (fps > MAX_FPS)
+        {
+            diff = SDL_GetTicks() - lastTime;
+            fps = 1 / (diff / 1000.0f);
+        }
         // update window title with FPS
         char title[100];
         sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
         SDL_SetWindowTitle(win, title);
-        // sleep if FPS > MAX_FPS
-        if (fps > MAX_FPS)
-            SDL_Delay(1000 * 1.0f / MAX_FPS - diff);
         // update lastTime for next iteration
         lastTime = time;
     }
