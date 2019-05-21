@@ -42,10 +42,22 @@ int main()
         return 1;
     }
 
+    unsigned int lastTime;
+    lastTime = SDL_GetTicks();
+
     // game loop
     init_game();
     while (tick_game())
     {
+        // calculate FPS
+        unsigned int time = SDL_GetTicks();
+        unsigned int diff = time - lastTime;
+        float fps = 60 / ((float) diff / 1000);
+        lastTime = time; // update lastTime for next iteration
+        // update window title with FPS
+        char title[100];
+        sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
+        SDL_SetWindowTitle(win, title);
     }
 
     /* SDL_DestroyTexture(tex); */
