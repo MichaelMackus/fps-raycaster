@@ -41,17 +41,17 @@ static inline int quadrant(int degrees)
     int degrees360 = (int) degrees % 360;
 
     // flip degrees when negative
-    if (degrees360 < 1) {
+    if (degrees360 < 0) {
         degrees360 = 360 + degrees360;
     }
 
-    if (degrees360 <= 90) {
+    if (degrees360 < 90) {
         return 1;
-    } else if (degrees360 <= 180) {
+    } else if (degrees360 < 180) {
         return 2;
-    } else if (degrees360 <= 270) {
+    } else if (degrees360 < 270) {
         return 3;
-    } else if (degrees360 <= 360) {
+    } else if (degrees360 < 360) {
         return 4;
     }
 
