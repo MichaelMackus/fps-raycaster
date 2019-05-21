@@ -10,6 +10,24 @@ typedef struct {
     double y;
 } Vector;
 
+// rotate an angle by amount, ensuring it stays >= 0 and < 2*PI
+static inline double rotate(double angle, double amount)
+{
+    double newAngle = angle + amount;
+
+    while (newAngle < 0)
+    {
+        newAngle = 2*PI + newAngle;
+    }
+
+    while (newAngle >= 2*PI)
+    {
+        newAngle -= 2*PI;
+    }
+
+    return newAngle;
+}
+
 // convert degrees to radians
 static inline double to_radians(double degrees)
 {
@@ -34,26 +52,20 @@ static inline double distance(Vector from, Vector to)
             pow(to.y - from.y, 2));
 }
 
-// what quadrant is an angle
 // returns 1-4 (quadrant)
-static inline int quadrant(int degrees)
+static inline int quadrant(double radians)
 {
-    int degrees360 = (int) degrees % 360;
+    // corrected radians
+    radians = rotate(0.0f, radians);
 
-    // flip degrees when negative
-    if (degrees360 < 0) {
-        degrees360 = 360 + degrees360;
-    }
-
-    if (degrees360 < 90) {
+    if (radians < PI / 2.0f)
         return 1;
-    } else if (degrees360 < 180) {
+    else if (radians < PI)
         return 2;
-    } else if (degrees360 < 270) {
+    else if (radians < 3.0f * PI / 2.0f)
         return 3;
-    } else if (degrees360 < 360) {
+    else if (radians < 2.0f * PI)
         return 4;
-    }
 
     // error
     return 0;

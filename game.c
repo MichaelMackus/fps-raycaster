@@ -121,12 +121,12 @@ int tick_game()
     if (keystates[SDL_SCANCODE_A])
     {
         // turn left
-        player.dir -= 0.1f;
+        player.dir = rotate(player.dir, -0.1f);
     }
     if (keystates[SDL_SCANCODE_D])
     {
         // turn right
-        player.dir += 0.1f;
+        player.dir = rotate(player.dir, 0.1f);
     }
 
     clear_rects();
@@ -140,17 +140,24 @@ int tick_game()
         // set tileStepX and tileStepY
         int tileStepX = 0;
         int tileStepY = 0;
-        int q = quadrant(to_degrees(rayDir));
-        if (q == 1) {
+        int q = quadrant(rayDir);
+        if (q == 1)
+        {
             tileStepX = 1;
             tileStepY = 1;
-        } else if (q == 2) {
+        }
+        else if (q == 2)
+        {
             tileStepX = -1;
             tileStepY = 1;
-        } else if (q == 3) {
+        }
+        else if (q == 3)
+        {
             tileStepX = -1;
             tileStepY = -1;
-        } else if (q == 4) {
+        }
+        else if (q == 4)
+        {
             tileStepX = 1;
             tileStepY = -1;
         }
@@ -186,9 +193,9 @@ int tick_game()
         Vector xIntercept;
         xIntercept.x = player.pos.x + (xInterceptOffset * (double) tileStepX);
         xIntercept.y = player.pos.y + (cellDistance.y * (double) tileStepY);
+
         // calculate ystep and xstep for ray projection
-        // TODO check for division by zero
-        double xstep = 1 / tan(rayDir);
+        double xstep = rayDir == 0 ? 0 : 1 / tan(rayDir);
         if (xstep < 0) // TODO cleanup
             xstep = xstep * -1;
         xstep = xstep * tileStepX;
