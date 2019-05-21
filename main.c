@@ -4,6 +4,8 @@
 #include "SDL.h"
 #include <stdlib.h>
 
+#define MAX_FPS 30
+
 int main()
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -52,12 +54,16 @@ int main()
         // calculate FPS
         unsigned int time = SDL_GetTicks();
         unsigned int diff = time - lastTime;
-        float fps = 60 / ((float) diff / 1000);
-        lastTime = time; // update lastTime for next iteration
+        double fps = 1 / (diff / 1000.0f);
         // update window title with FPS
         char title[100];
         sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
         SDL_SetWindowTitle(win, title);
+        // sleep if FPS > MAX_FPS
+        if (fps > MAX_FPS)
+            SDL_Delay(1000 * 1.0f / MAX_FPS - diff);
+        // update lastTime for next iteration
+        lastTime = time;
     }
 
     /* SDL_DestroyTexture(tex); */
