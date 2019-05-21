@@ -3,8 +3,6 @@
 
 #include "SDL.h"
 
-#define DEBUG
-
 #define MAP_WIDTH 19
 #define MAP_HEIGHT 19
 
