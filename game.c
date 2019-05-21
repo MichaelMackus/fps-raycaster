@@ -17,17 +17,17 @@ static char map[MAP_HEIGHT][MAP_WIDTH] =
     {"###################",
      "#.................#",
      "#.................#",
+     "#........#........#",
      "#.................#",
      "#.................#",
      "#.................#",
+     "#......#####......#",
+     "#......#...#......#",
+     "#......#.@.#......#",
+     "#......#...#......#",
+     "#......##.##......#",
      "#.................#",
-     "#.................#",
-     "#.................#",
-     "#........@........#",
-     "#.................#",
-     "#.................#",
-     "#.................#",
-     "#.................#",
+     "#.......#.#.......#",
      "#.................#",
      "#.................#",
      "#.................#",
@@ -314,8 +314,20 @@ int tick_game()
             double wallHeight = screenHeight * proportion;
             double y = (screenHeight - wallHeight) / 2;
 
-            // TODO lighting
-            draw_rect(x, y, 1, wallHeight, 255, 255, 255, 255);
+            double lighting;
+            if (proportion > 0.75f)
+                lighting = 0.9f;
+            else if (proportion > 0.6f)
+                lighting = 0.85f;
+            else if (proportion > 0.45f)
+                lighting = 0.8f;
+            else if (proportion > 0.3f)
+                lighting = 0.75f;
+            else if (proportion > 0.15f)
+                lighting = 0.7f;
+            else
+                lighting = 0.6f;
+            draw_rect(x, y, 1, wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
         }
     }
 
