@@ -101,32 +101,32 @@ int tick_game()
     if(keystates[SDL_SCANCODE_W])
     {
         // walk forward in unit circle (unit circle x = cos, y = sin)
-        player.pos.x += cos(player.dir);
-        player.pos.y += sin(player.dir);
+        player.pos.x += cos(player.dir) / 3;
+        player.pos.y += sin(player.dir) / 3;
         if (map[(int) player.pos.y][(int) player.pos.x] == '#') {
-            player.pos.x -= cos(player.dir);
-            player.pos.y -= sin(player.dir);
+            player.pos.x -= cos(player.dir) / 3;
+            player.pos.y -= sin(player.dir) / 3;
         }
     }
     if(keystates[SDL_SCANCODE_S])
     {
         // walk backward in unit circle (unit circle x = cos, y = sin)
-        player.pos.x -= cos(player.dir);
-        player.pos.y -= sin(player.dir);
+        player.pos.x -= cos(player.dir) / 3;
+        player.pos.y -= sin(player.dir) / 3;
         if (map[(int) player.pos.y][(int) player.pos.x] == '#') {
-            player.pos.x += cos(player.dir);
-            player.pos.y += sin(player.dir);
+            player.pos.x += cos(player.dir) / 3;
+            player.pos.y += sin(player.dir) / 3;
         }
     }
     if (keystates[SDL_SCANCODE_A])
     {
         // turn left
-        player.dir = rotate(player.dir, -0.1f);
+        player.dir = rotate(player.dir, -0.05f);
     }
     if (keystates[SDL_SCANCODE_D])
     {
         // turn right
-        player.dir = rotate(player.dir, 0.1f);
+        player.dir = rotate(player.dir, 0.05f);
     }
 
     clear_rects();
