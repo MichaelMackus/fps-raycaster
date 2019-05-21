@@ -6,33 +6,29 @@
 #define PI acos(-1)
 
 typedef struct {
-    float x;
-    float y;
+    double x;
+    double y;
 } Vector;
 
 // convert degrees to radians
-float to_radians(float degrees)
+static inline double to_radians(double degrees)
 {
-    float radiansPerDegree = PI / 180;
+    double radiansPerDegree = PI / 180;
 
     return degrees * radiansPerDegree;
 }
 
 // convert radians to degrees
-float to_degrees(float radians)
+static inline double to_degrees(double radians)
 {
-    float degreesPerRadian = 180 / PI;
-    float degrees = radians * degreesPerRadian;
-
-    if (degrees < 0) {
-        return 360 + degrees;
-    }
+    double degreesPerRadian = 180 / PI;
+    double degrees = radians * degreesPerRadian;
 
     return degrees;
 }
 
 // calculate distance between vectors
-float distance(Vector from, Vector to)
+static inline double distance(Vector from, Vector to)
 {
     return sqrt(pow(to.x - from.x, 2) +
             pow(to.y - from.y, 2));
@@ -40,15 +36,22 @@ float distance(Vector from, Vector to)
 
 // what quadrant is an angle
 // returns 1-4 (quadrant)
-float quadrant(float degrees)
+static inline int quadrant(int degrees)
 {
-    if (degrees <= 90) {
+    int degrees360 = (int) degrees % 360;
+
+    // flip degrees when negative
+    if (degrees360 < 1) {
+        degrees360 = 360 + degrees360;
+    }
+
+    if (degrees360 <= 90) {
         return 1;
-    } else if (degrees <= 180) {
+    } else if (degrees360 <= 180) {
         return 2;
-    } else if (degrees <= 270) {
+    } else if (degrees360 <= 270) {
         return 3;
-    } else if (degrees <= 360) {
+    } else if (degrees360 <= 360) {
         return 4;
     }
 
