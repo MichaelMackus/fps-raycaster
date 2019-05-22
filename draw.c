@@ -14,10 +14,6 @@ typedef struct {
     SDL_Rect rect;
 } ColoredRectangle;
 
-static ColoredRectangle **rectangles; // array of rectangles
-static int rect_count = 0; // amount of textures
-static int rect_size = 0; // size of textures array
-
 // represent a colored line in SDL
 typedef struct {
     Uint8 r;
@@ -28,9 +24,39 @@ typedef struct {
     SDL_Point to;
 } ColoredLine;
 
-static ColoredLine **lines; // array of lines
-static int line_count = 0;
-static int line_size = 0;
+// represent a gradient in SDL
+typedef struct {
+    Uint8 r1;
+    Uint8 g1;
+    Uint8 b1;
+    Uint8 a1;
+    Uint8 r2;
+    Uint8 g2;
+    Uint8 b2;
+    Uint8 a2;
+    SDL_Point from;
+    SDL_Point to;
+} Gradient;
+
+typedef enum {
+    ColoredLineTexture,
+    ColoredRectTexture,
+    GradientTexture
+} TextureType;
+
+// struct representing all of our texture types
+typedef struct {
+    union {
+        ColoredLine line;
+        ColoredRectangle rect;
+        Gradient gradient;
+    };
+    TextureType type;
+} Texture;
+
+static Texture **textures;
+static int textures_count = 0; // amount of textures
+static int textures_size = 0; // size of textures array
 
 int draw_init(SDL_Window *win, SDL_Renderer *r)
 {
@@ -61,33 +87,36 @@ int draw_update()
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(renderer);
 
-    for (int i = 0; i < rect_count; ++i)
+    for (int i = 0; i < textures_count; ++i)
     {
-        if (i > rect_size)
+        if (i >= textures_size)
             break;
 
-        ColoredRectangle *rect = rectangles[i];
+        Texture *texture = textures[i];
         
-        if (rect == NULL)
+        if (texture == NULL)
             continue;
 
-        SDL_SetRenderDrawColor(renderer, rect->r, rect->g, rect->b, rect->a);
-        SDL_RenderDrawRect(renderer, &rect->rect);
-        SDL_RenderFillRect(renderer, &rect->rect);
-    }
+        switch (texture->type)
+        {
+            case ColoredRectTexture:
+                ;
+                ColoredRectangle rect = texture->rect;
+                SDL_SetRenderDrawColor(renderer, rect.r, rect.g, rect.b, rect.a);
+                SDL_RenderDrawRect(renderer, &rect.rect);
+                SDL_RenderFillRect(renderer, &rect.rect);
+                break;
 
-    for (int i = 0; i < line_count; ++i)
-    {
-        if (i > line_size)
-            break;
+            case ColoredLineTexture:
+                ;
+                ColoredLine line = texture->line;
+                SDL_SetRenderDrawColor(renderer, line.r, line.g, line.b, line.a);
+                SDL_RenderDrawLine(renderer, line.from.x, line.from.y, line.to.x, line.to.y);
+                break;
 
-        ColoredLine *line = lines[i];
-        
-        if (line == NULL)
-            continue;
-
-        SDL_SetRenderDrawColor(renderer, line->r, line->g, line->b, line->a);
-        SDL_RenderDrawLine(renderer, line->from.x, line->from.y, line->to.x, line->to.y);
+            default:
+                break;
+        }
     }
 
     SDL_SetRenderTarget(renderer, NULL);
@@ -102,100 +131,100 @@ void get_screen_dimensions(int *w, int *h)
     SDL_GetWindowSize(window, w, h);
 }
 
-int _realloc_rects(int size);
+int _realloc_textures(int size);
 int draw_rect(int x, int y, int w, int h,
         Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
-    ColoredRectangle *coloredRect = malloc(sizeof(*coloredRect));
+    Texture *texture = malloc(sizeof(*texture));
 
-    if (coloredRect == NULL)
+    if (texture == NULL)
         return 1;
 
-    coloredRect->rect.x = x;
-    coloredRect->rect.y = y;
-    coloredRect->rect.w = w;
-    coloredRect->rect.h = h;
-
-    coloredRect->r = r;
-    coloredRect->g = g;
-    coloredRect->b = b;
-    coloredRect->a = a;
+    texture->type = ColoredRectTexture;
+    texture->rect = (ColoredRectangle) {
+        r, g, b, a,
+        { x, y, w, h }
+    };
 
     // add to array
-    if (rect_count >= rect_size)
-        _realloc_rects(rect_size + 100);
-    rectangles[rect_count++] = coloredRect;
+    if (textures_count >= textures_size)
+        _realloc_textures(textures_size + 100);
+    textures[textures_count++] = texture;
 
     return 0;
 }
 
-int _realloc_lines(int size);
 int draw_line(int x1, int y1, int x2, int y2,
         Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
-    ColoredLine *line = malloc(sizeof(*line));
+    Texture *texture = malloc(sizeof(*texture));
 
-    line->r = r;
-    line->g = g;
-    line->b = b;
-    line->a = a;
+    if (texture == NULL)
+        return 1;
 
-    /* line->from = (SDL_Point) { x1, y1 }; */
-    /* line->to = (SDL_Point) { x2, y2 }; */
-    line->from.x = x1;
-    line->from.y = y1;
-    line->to.x = x2;
-    line->to.y = y2;
+    texture->type = ColoredLineTexture;
+    texture->line = (ColoredLine) {
+        r, g, b, a,
+        { x1, y1 },
+        { x2, y2 }
+    };
 
     // add to array
-    if (line_count >= line_size)
-        _realloc_lines(line_size + 100);
-    lines[line_count++] = line;
+    if (textures_count >= textures_size)
+        _realloc_textures(textures_size + 100);
+    textures[textures_count++] = texture;
+
+    return 0;
+}
+
+int draw_gradient_line(int x1, int y1, int x2, int y2,
+        Uint8 r1, Uint8 g1, Uint8 b1, Uint8 a1,
+        Uint8 r2, Uint8 g2, Uint8 b2, Uint8 a2)
+{
+    Texture *texture = malloc(sizeof(*texture));
+
+    if (texture == NULL)
+        return 1;
+
+    texture->type = GradientTexture;
+    texture->gradient = (Gradient) {
+        r1, g1, b1, a1,
+        r2, g2, b2, a2,
+        { x1, y1 },
+        { x2, y2 }
+    };
+
+    // add to array
+    if (textures_count >= textures_size)
+        _realloc_textures(textures_size + 100);
+    textures[textures_count++] = texture;
 
     return 0;
 }
 
 int clear()
 {
-    for (int i = 0; i < rect_count; ++i)
-        free(rectangles[i]);
-    for (int i = 0; i < line_count; ++i)
-        free(lines[i]);
+    for (int i = 0; i < textures_count; ++i)
+        free(textures[i]);
 
-    rect_count = 0;
-    line_count = 0;
+    textures_count = 0;
 
     return 0;
 }
 
 /** private stuff **/
 
-int _realloc_rects(int size)
+int _realloc_textures(int size)
 {
-    ColoredRectangle **tmp;
-    tmp = realloc(rectangles, sizeof(*tmp) * size);
+    Texture **tmp;
+    tmp = realloc(textures, sizeof(*tmp) * size);
 
     if (tmp == NULL) {
         return 1;
     }
 
-    rect_size = size;
-    rectangles = tmp;
-
-    return 0;
-}
-
-int _realloc_lines(int size)
-{
-    ColoredLine **tmp;
-    tmp = realloc(lines, sizeof(*tmp) * size);
-
-    if (tmp == NULL) {
-        return 1;
-    }
-
-    line_size = size;
-    lines = tmp;
+    textures_size = size;
+    textures = tmp;
 
     return 0;
 }
