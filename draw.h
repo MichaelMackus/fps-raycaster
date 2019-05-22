@@ -16,7 +16,11 @@ void get_screen_dimensions(int *w, int *h);
 int draw_rect(int x, int y, int w, int h,
         Uint8 r, Uint8 g, Uint8 b, Uint8 a);
 
-// clear rects
-int clear_rects();
+// draw a line
+int draw_line(int x1, int y1, int x2, int y2,
+        Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+
+// clear all objects
+int clear();
 
 #endif

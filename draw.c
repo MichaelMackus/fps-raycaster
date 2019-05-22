@@ -16,9 +16,22 @@ typedef struct {
 
 static ColoredRectangle **rectangles; // array of rectangles
 static int rect_count = 0; // amount of textures
-static int rect_size = 100; // size of textures array
+static int rect_size = 0; // size of textures array
 
-int _realloc_rects(int size);
+// represent a colored line in SDL
+typedef struct {
+    Uint8 r;
+    Uint8 g;
+    Uint8 b;
+    Uint8 a;
+    SDL_Point from;
+    SDL_Point to;
+} ColoredLine;
+
+static ColoredLine **lines; // array of lines
+static int line_count = 0;
+static int line_size = 0;
+
 int draw_init(SDL_Window *win, SDL_Renderer *r)
 {
     if (r == NULL)
@@ -39,11 +52,6 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
     if (texture == NULL)
         return 1;
 
-    // reallocate our rectangles array
-    if (_realloc_rects(rect_size) != 0) {
-        return 1;
-    }
-
     return 0;
 }
 
@@ -63,9 +71,23 @@ int draw_update()
         if (rect == NULL)
             continue;
 
-        SDL_RenderDrawRect(renderer, &rect->rect);
         SDL_SetRenderDrawColor(renderer, rect->r, rect->g, rect->b, rect->a);
+        SDL_RenderDrawRect(renderer, &rect->rect);
         SDL_RenderFillRect(renderer, &rect->rect);
+    }
+
+    for (int i = 0; i < line_count; ++i)
+    {
+        if (i > line_size)
+            break;
+
+        ColoredLine *line = lines[i];
+        
+        if (line == NULL)
+            continue;
+
+        SDL_SetRenderDrawColor(renderer, line->r, line->g, line->b, line->a);
+        SDL_RenderDrawLine(renderer, line->from.x, line->from.y, line->to.x, line->to.y);
     }
 
     SDL_SetRenderTarget(renderer, NULL);
@@ -80,6 +102,7 @@ void get_screen_dimensions(int *w, int *h)
     SDL_GetWindowSize(window, w, h);
 }
 
+int _realloc_rects(int size);
 int draw_rect(int x, int y, int w, int h,
         Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
@@ -99,17 +122,44 @@ int draw_rect(int x, int y, int w, int h,
     coloredRect->a = a;
 
     // add to array
-    if (rect_count > rect_size)
+    if (rect_count >= rect_size)
         _realloc_rects(rect_size + 100);
     rectangles[rect_count++] = coloredRect;
 
     return 0;
 }
 
-int clear_rects()
+int _realloc_lines(int size);
+int draw_line(int x1, int y1, int x2, int y2,
+        Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+    ColoredLine *line = malloc(sizeof(*line));
+
+    line->r = r;
+    line->g = g;
+    line->b = b;
+    line->a = a;
+
+    /* line->from = (SDL_Point) { x1, y1 }; */
+    /* line->to = (SDL_Point) { x2, y2 }; */
+    line->from.x = x1;
+    line->from.y = y1;
+    line->to.x = x2;
+    line->to.y = y2;
+
+    // add to array
+    if (line_count >= line_size)
+        _realloc_lines(line_size + 100);
+    lines[line_count++] = line;
+
+    return 0;
+}
+
+int clear()
 {
     // for now, just reset count
     rect_count = 0;
+    line_count = 0;
 
     return 0;
 }
@@ -127,6 +177,21 @@ int _realloc_rects(int size)
 
     rect_size = size;
     rectangles = tmp;
+
+    return 0;
+}
+
+int _realloc_lines(int size)
+{
+    ColoredLine **tmp;
+    tmp = realloc(lines, sizeof(*tmp) * size);
+
+    if (tmp == NULL) {
+        return 1;
+    }
+
+    line_size = size;
+    lines = tmp;
 
     return 0;
 }
