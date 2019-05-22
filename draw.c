@@ -157,7 +157,11 @@ int draw_line(int x1, int y1, int x2, int y2,
 
 int clear()
 {
-    // for now, just reset count
+    for (int i = 0; i < rect_count; ++i)
+        free(rectangles[i]);
+    for (int i = 0; i < line_count; ++i)
+        free(lines[i]);
+
     rect_count = 0;
     line_count = 0;
 
