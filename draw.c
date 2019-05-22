@@ -3,6 +3,11 @@
 static SDL_Window *window;
 static SDL_Renderer *renderer;
 
+// textures array initialized by layers
+static SDL_Texture **textures;
+static int textures_size = 0;
+
+// current texture being drawn to
 static SDL_Texture *texture;
 
 int draw_init(SDL_Window *win, SDL_Renderer *r)
@@ -13,24 +18,42 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
     renderer = r;
     window = win;
 
-    // get width & height for texture
-    int w;
-    int h;
-    SDL_GetWindowSize(window, &w, &h);
-
-    // initialize texture, or error
-    // TODO move this to draw_start and index into array by layer
-    texture = SDL_CreateTexture(renderer,
-            SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
-
-    if (texture == NULL)
-        return 1;
-
     return 0;
 }
 
 int draw_start(int layer)
 {
+    if (layer >= textures_size)
+    {
+        // realloc textures
+        int new_size = layer + 1;
+        SDL_Texture **tmp = realloc(textures, sizeof(*textures) * new_size);
+
+        if (tmp == NULL)
+            return 1;
+
+        // ensure newly allocated memory is initialized to NULL
+        memset(tmp + textures_size, 0, sizeof(*textures) * (new_size - textures_size));
+
+        textures = tmp;
+        textures_size = new_size;
+    }
+
+    if (textures[layer] == NULL)
+    {
+        int w, h;
+        get_screen_dimensions(&w, &h);
+
+        // initialize texture, or error
+        textures[layer] = SDL_CreateTexture(renderer,
+                SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+
+        if (textures[layer] == NULL)
+            return 1;
+    }
+
+    texture = textures[layer];
+
     SDL_SetRenderTarget(renderer, texture);
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(renderer);
