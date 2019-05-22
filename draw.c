@@ -34,8 +34,7 @@ typedef struct {
     Uint8 g2;
     Uint8 b2;
     Uint8 a2;
-    SDL_Point from;
-    SDL_Point to;
+    SDL_Rect rect;
 } Gradient;
 
 typedef enum {
@@ -114,6 +113,47 @@ int draw_update()
                 SDL_RenderDrawLine(renderer, line.from.x, line.from.y, line.to.x, line.to.y);
                 break;
 
+            case GradientTexture:
+                ;
+                Gradient gradient = texture->gradient;
+                
+                // amount of pixels each step through gradient represents
+                int gradientStep = gradient.rect.h / GRADIENT_STEPS;
+                // amount of color we add for each step through gradient
+                float r = (gradient.r2 - gradient.r1) / GRADIENT_STEPS;
+                float g = (gradient.g2 - gradient.g1) / GRADIENT_STEPS;
+                float b = (gradient.b2 - gradient.b1) / GRADIENT_STEPS;
+                float a = (gradient.a2 - gradient.a1) / GRADIENT_STEPS;
+
+                // loop through gradient top to bottom in GRADIENT_STEPS
+                for (int i = 0; i < GRADIENT_STEPS; i ++)
+                {
+                    SDL_SetRenderDrawColor(renderer,
+                            gradient.r1 + (r * i),
+                            gradient.g1 + (r * i),
+                            gradient.b1 + (r * i),
+                            gradient.a1 + (r * i));
+
+                    int y1 = gradient.rect.y + (gradientStep * i);
+                    int y2 = gradient.rect.y + (gradientStep * (i+1));
+
+                    if (gradient.rect.w == 1)
+                        SDL_RenderDrawLine(renderer,
+                                gradient.rect.x,
+                                y1,
+                                gradient.rect.x,
+                                y2);
+                    else
+                        // TODO implement rectangle gradients
+                        SDL_RenderDrawLine(renderer,
+                                gradient.rect.x,
+                                y1,
+                                gradient.rect.x,
+                                y2);
+                }
+
+                break;
+
             default:
                 break;
         }
@@ -177,7 +217,7 @@ int draw_line(int x1, int y1, int x2, int y2,
     return 0;
 }
 
-int draw_gradient_line(int x1, int y1, int x2, int y2,
+int draw_gradient(int x, int y, int w, int h,
         Uint8 r1, Uint8 g1, Uint8 b1, Uint8 a1,
         Uint8 r2, Uint8 g2, Uint8 b2, Uint8 a2)
 {
@@ -190,8 +230,7 @@ int draw_gradient_line(int x1, int y1, int x2, int y2,
     texture->gradient = (Gradient) {
         r1, g1, b1, a1,
         r2, g2, b2, a2,
-        { x1, y1 },
-        { x2, y2 }
+        { x, y, w, h }
     };
 
     // add to array
