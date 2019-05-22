@@ -58,6 +58,24 @@ int draw_start(int layer)
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(renderer);
 
+    // copy layers below this layer onto this one
+    if (layer > 0)
+    {
+        int w, h;
+        get_screen_dimensions(&w, &h);
+        SDL_Rect screen = { 0, 0, w, h };
+
+        for (int i = 0; i < layer; i++)
+        {
+            SDL_Texture *curLayer = textures[i];
+
+            if (curLayer == NULL)
+                continue;
+
+            SDL_RenderCopy(renderer, curLayer, &screen, &screen);
+        }
+    }
+
     return 0;
 }
 

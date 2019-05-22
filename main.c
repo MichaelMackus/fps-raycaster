@@ -76,6 +76,15 @@ int main(int argc, char **argv)
     unsigned int lastTime;
     lastTime = SDL_GetTicks();
 
+    // draw background layer
+    draw_start(0);
+    for (int x = 0; x < width; ++x)
+    {
+        draw_gradient(x, height / 2, 1, height / 2,
+                0, 0, 0, 255,
+                122, 122, 122, 255);
+    }
+
     // game loop
     init_game();
     while (tick_game())

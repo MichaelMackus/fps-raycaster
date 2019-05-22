@@ -325,11 +325,6 @@ int tick_game()
             if (lighting > 1)
                 lighting = 1;
 
-            /* // draw floor */
-            /* draw_gradient(x, screenHeight / 2, 1, screenHeight / 2, */
-            /*         0, 0, 0, 255, */
-            /*         122, 122, 122, 255); */
-
             // draw wall
             draw_line(x, y, x, y + wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
         }
