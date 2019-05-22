@@ -6,7 +6,18 @@
 
 #define MAX_FPS 30
 
-int main()
+int flag_exists(const char *flag, int argc, char **argv)
+{
+    for (int i = 0; i < argc; ++i)
+    {
+        if (strcmp(argv[i], flag) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+int main(int argc, char **argv)
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
@@ -15,9 +26,23 @@ int main()
         return 1;
     }
 
+    // default width & height
+    int width = 800;
+    int height = 600;
+    int flags = 0;
+
+    SDL_DisplayMode display;
+    if (!(flag_exists("-w", argc, argv) || flag_exists("--windowed", argc, argv)) &&
+            SDL_GetCurrentDisplayMode(0, &display) == 0)
+    {
+        width = display.w;
+        height = display.h;
+        flags = SDL_WINDOW_FULLSCREEN;
+    }
+
     SDL_Window *win = SDL_CreateWindow("Raycasting Demo",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            800, 600, 0);
+            width, height, flags);
 
     if (win == NULL)
     {
@@ -26,7 +51,11 @@ int main()
         return 1;
     }
 
+    // capture mouse within SDL window
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+
     // some useful flags SDL_RENDERER_SOFTWARE or SDL_RENDERER_ACCELERATED
+    // NOTE: looks like accelerated is inferred by default
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, 0);
 
     if (renderer == NULL)
@@ -61,10 +90,15 @@ int main()
             diff = SDL_GetTicks() - lastTime;
             fps = 1 / (diff / 1000.0f);
         }
-        // update window title with FPS
-        char title[100];
-        sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
-        SDL_SetWindowTitle(win, title);
+
+        if (flag_exists("--stats", argc, argv) || flag_exists("-s", argc, argv))
+        {
+            // update window title with FPS
+            char title[100];
+            sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
+            SDL_SetWindowTitle(win, title);
+        }
+
         // update lastTime for next iteration
         lastTime = time;
     }
