@@ -42,7 +42,7 @@ void init_game()
     player.pos.x = 9.0f;
     player.pos.y = 9.0f;
     player.dir = 0.0f;
-    player.fov = to_radians(66);
+    player.fov = to_radians(90);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 }
@@ -73,7 +73,6 @@ int hit_wall(Vector pos, WallSide side)
 int tick_game()
 {
     int playing = 1;
-    int debug = 0;
 
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -83,19 +82,20 @@ int tick_game()
 
         if (e.type == SDL_KEYDOWN)
         {
-            debug = 1;
             switch (e.key.keysym.sym)
             {
                 case SDLK_q:
                     playing = 0;
                     break;
             }
-#ifdef DEBUG
+#ifdef GAME_DEBUG
             printf("X: %f, Y: %f, Dir: %f\n", player.pos.x, player.pos.y, player.dir);
 #endif
         }
     }
 
+    // TODO use this to get mouse pos:
+    /* SDL_GetRelativeMouseState(&relx, &rely); */
 
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
     if(keystates[SDL_SCANCODE_W])
@@ -129,7 +129,7 @@ int tick_game()
         player.dir = rotate(player.dir, 0.05f);
     }
 
-    clear_rects();
+    clear();
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
@@ -210,7 +210,7 @@ int tick_game()
             ystep = ystep * -1;
         ystep = ystep * tileStepY;
 
-#ifdef DEBUG
+#ifdef GAME_DEBUG
         printf("quadrant: %d, degrees: %f, dir: %f, tan dir: %f, celld: (%f, %f), intercepts: (%f, %f), player: (%f, %f), x-intercept: (%f, %f), y-intercept: (%f, %f)\n",
                 q, to_degrees(rayDir), rayDir, 
                 tan(rayDir),
@@ -300,7 +300,7 @@ int tick_game()
                 rayPos.y = yIntercept.y;
             }
 
-#ifdef DEBUG
+#ifdef GAME_DEBUG
             printf("hit found: (%f, %f); side: %d\n", rayPos.x, rayPos.y, side);
 #endif
 
@@ -320,20 +320,14 @@ int tick_game()
             double wallHeight = screenHeight * proportion;
             double y = (screenHeight - wallHeight) / 2;
 
-            double lighting;
-            if (proportion > 0.75f)
-                lighting = 0.9f;
-            else if (proportion > 0.6f)
-                lighting = 0.85f;
-            else if (proportion > 0.45f)
-                lighting = 0.8f;
-            else if (proportion > 0.3f)
-                lighting = 0.75f;
-            else if (proportion > 0.15f)
-                lighting = 0.7f;
-            else
-                lighting = 0.6f;
-            draw_rect(x, y, 1, wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
+            double lighting = 1 / propDist;
+            if (lighting > 1)
+                lighting = 1;
+
+            draw_line(x, y, x, y + wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
+            
+            // draw floor TODO fill floor with gradient not reflection
+            draw_line(x, y + wallHeight, x, screenHeight, 122*lighting, 122*lighting, 122*lighting, 255);
         }
     }
 

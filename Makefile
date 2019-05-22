@@ -1,7 +1,7 @@
 PROGRAM = raycast
 OBJS = main.o draw.o game.o
-# CCDEFINES = -DDEBUG
-CCFLAGS = -I/usr/include/SDL2 $(CCDEFINES)
+# CCDEFINES = -DGAME_DEBUG
+CCFLAGS = -Wall -I/usr/include/SDL2 $(CCDEFINES)
 LDFLAGS = -lSDL2 -lm
 
 $(PROGRAM): $(OBJS)
