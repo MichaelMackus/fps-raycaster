@@ -42,7 +42,7 @@ void init_game()
     player.pos.x = 9.0f;
     player.pos.y = 9.0f;
     player.dir = 0.0f;
-    player.fov = to_radians(66); // FOV is 90 degrees (math.pi / 2 in radians)
+    player.fov = to_radians(66);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 }
@@ -131,11 +131,17 @@ int tick_game()
 
     clear_rects();
 
+    // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
+    double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
+
     // detect which squares the player can see, and draw them proportionally to distance
     for (int x = 0; x <= screenWidth; ++x)
     {
         // calculate ray direction
-        double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth);
+        // double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth); // generates distortion towards edges
+        // fix for increased distortion towards screen edges
+        // see: https://stackoverflow.com/questions/24173966/raycasting-engine-rendering-creating-slight-distortion-increasing-towards-edges
+        double rayDir = player.dir + atan((x - screenWidth/2.0f) / distanceToSurface);
 
         // set tileStepX and tileStepY
         int tileStepX = 0;
