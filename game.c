@@ -224,7 +224,7 @@ int tick_game()
         // increment ray pos until we hit wall, *or* go past map bounds
         int hit = 0;
         int side; // 0 for x-intercept, 1 for y-intercept
-        while (hit == 0) // TODO bounds checking */
+        while (hit == 0) // TODO bounds checking
         {
             // check for x-intercept
             if (tileStepY == 1)
@@ -324,6 +324,8 @@ int tick_game()
             double lighting = 1 / propDist;
             if (lighting > 1)
                 lighting = 1;
+            if (side == 1)
+                lighting *= 0.75;
 
             // draw wall
             draw_line(x, y, x, y + wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
