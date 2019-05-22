@@ -114,20 +114,20 @@ int draw_line(int x1, int y1, int x2, int y2,
     return 0;
 }
 
-int draw_gradient(int x, int y, int w, int h,
+int draw_gradient(int x, int y, int w, int h, int steps,
         Uint8 r1, Uint8 g1, Uint8 b1, Uint8 a1,
         Uint8 r2, Uint8 g2, Uint8 b2, Uint8 a2)
 {
     // amount of pixels each step through gradient represents
-    int gradientStep = h / GRADIENT_STEPS;
+    double gradientStep = (double) h / (double) steps;
     // amount of color we add for each step through gradient
-    float r = (r2 - r1) / GRADIENT_STEPS;
-    float g = (g2 - g1) / GRADIENT_STEPS;
-    float b = (b2 - b1) / GRADIENT_STEPS;
-    float a = (a2 - a1) / GRADIENT_STEPS;
+    double r = (double) (r2 - r1) / (double) steps;
+    double g = (double) (g2 - g1) / (double) steps;
+    double b = (double) (b2 - b1) / (double) steps;
+    double a = (double) (a2 - a1) / (double) steps;
 
-    // loop through gradient top to bottom in GRADIENT_STEPS
-    for (int i = 0; i < GRADIENT_STEPS; i ++)
+    // loop through gradient top to bottom in steps
+    for (int i = 0; i < steps; i ++)
     {
         SDL_SetRenderDrawColor(renderer, r1 + r*i, g1 + g*i, b1 + b*i, a1 + a*i);
 
@@ -141,12 +141,11 @@ int draw_gradient(int x, int y, int w, int h,
                     x,
                     y2);
         else
-            // TODO implement rectangle gradients
-            SDL_RenderDrawLine(renderer,
-                    x,
-                    y1,
-                    x,
-                    y2);
+        {
+            SDL_Rect rect = (SDL_Rect) { x, y1, w, y2 - y1 };
+            SDL_RenderDrawRect(renderer, &rect);
+            SDL_RenderFillRect(renderer, &rect);
+        }
     }
 
     return 0;
