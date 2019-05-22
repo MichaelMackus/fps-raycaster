@@ -129,7 +129,8 @@ int tick_game()
         player.dir = rotate(player.dir, 0.05f);
     }
 
-    clear();
+    // start drawing on layer 1
+    draw_start(1);
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
@@ -324,14 +325,18 @@ int tick_game()
             if (lighting > 1)
                 lighting = 1;
 
+            /* // draw floor */
+            /* draw_gradient(x, screenHeight / 2, 1, screenHeight / 2, */
+            /*         0, 0, 0, 255, */
+            /*         122, 122, 122, 255); */
+
+            // draw wall
             draw_line(x, y, x, y + wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
-            
-            // draw floor TODO fill floor with gradient not reflection
-            draw_line(x, y + wallHeight, x, screenHeight, 122*lighting, 122*lighting, 122*lighting, 255);
         }
     }
 
-    draw_update();
+    // finish drawing to layer 1
+    draw_update(1);
 
     return playing;
 }
