@@ -88,6 +88,33 @@ int draw_update(int layer)
     return 0;
 }
 
+SDL_Texture* load_texture(const char *filename)
+{
+    SDL_Surface *surface = IMG_Load(filename);
+
+    if (surface == NULL)
+        return NULL;
+    
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_FreeSurface(surface);
+
+    return texture;
+}
+
+int draw_texture(SDL_Texture *texture,
+        int x1, int y1, int w1, int h1,
+        int x2, int y2, int w2, int h2)
+{
+    SDL_Rect from = { x1, y1, w1, h1 };
+    SDL_Rect to = { x2, y2, w2, h2 };
+
+    return SDL_RenderCopy(renderer,
+            texture,
+            &from,
+            &to);
+}
+
 void get_screen_dimensions(int *w, int *h)
 {
     SDL_GetWindowSize(window, w, h);

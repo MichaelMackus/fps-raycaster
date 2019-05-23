@@ -2,6 +2,7 @@
 #define DRAW_H
 
 #include "SDL.h"
+#include "SDL_image.h"
 
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
@@ -11,6 +12,14 @@ int draw_start(int layer);
 
 // draw to the screen
 int draw_update(int layer);
+
+// load texture image
+SDL_Texture* load_texture(const char *filename);
+
+// draw portion of texture
+int draw_texture(SDL_Texture *texture,
+        int x1, int y1, int w1, int h1,
+        int x2, int y2, int w2, int h2);
 
 // get width & height of screen
 void get_screen_dimensions(int *w, int *h);

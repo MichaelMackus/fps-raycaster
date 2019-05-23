@@ -5,6 +5,7 @@
 
 #define MAP_WIDTH 19
 #define MAP_HEIGHT 19
+#define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
 
 static Player player;
 
@@ -37,7 +38,12 @@ static char map[MAP_HEIGHT][MAP_WIDTH] =
 int screenWidth;
 int screenHeight;
 
-void init_game()
+// our texture image
+static SDL_Texture *texture;
+int textureWidth;
+int textureHeight;
+
+int init_game()
 {
     player.pos.x = 9.0f;
     player.pos.y = 9.0f;
@@ -45,6 +51,13 @@ void init_game()
     player.fov = to_radians(90);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
+
+    texture = load_texture("wolftextures.png");
+
+    if (texture == NULL)
+        return 1;
+
+    return SDL_QueryTexture(texture, NULL, NULL, &textureWidth, &textureHeight);
 }
 
 typedef enum {
@@ -321,14 +334,23 @@ int tick_game()
             double wallHeight = screenHeight * proportion;
             double y = (screenHeight - wallHeight) / 2;
 
-            double lighting = 1 / propDist;
-            if (lighting > 1)
-                lighting = 1;
-            if (side == 1)
-                lighting *= 0.75;
+            // calculate which part of texture to render
+            double wallX; // where within the wall did the ray hit
+            if (side == 0) wallX = rayPos.x - floor(rayPos.x);
+            else wallX = rayPos.y - floor(rayPos.y);
+            int texturePartWidth = 64; // width of a single texture within texture file
+            int textureX = wallX * texturePartWidth;
 
-            // draw wall
-            draw_line(x, y, x, y + wallHeight, 255*lighting, 255*lighting, 255*lighting, 255);
+            // draw texture
+            draw_texture(texture,
+                    texturePartWidth + textureX, 0, 1, textureHeight,
+                    x, y, 1, wallHeight);
+
+            // TODO add simple lighting
+            /* double lighting = 1 / propDist; */
+            /* if (lighting > 1) lighting = 1; */
+            /* if (side == 1) lighting *= 0.75; */
+            /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
         }
     }
 

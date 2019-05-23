@@ -2,6 +2,7 @@
 #include "game.h"
 
 #include "SDL.h"
+#include "SDL_image.h"
 #include <stdlib.h>
 
 #define MAX_FPS 30
@@ -51,6 +52,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
+    {
+        printf("Error initializing PNG image loading.\n");
+
+        return 1;
+    }
+
     // capture mouse within SDL window
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
@@ -64,6 +72,9 @@ int main(int argc, char **argv)
 
         return 1;
     }
+
+    // turn on alpha blending
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     // initialize our drawing
     if (draw_init(win, renderer) != 0)
@@ -85,8 +96,14 @@ int main(int argc, char **argv)
             0, 0, 0, 255,
             61, 61, 61, 255);
 
+    if (init_game() == 1)
+    {
+        printf("Error initializing game.\n");
+
+        return 1;
+    }
+
     // game loop
-    init_game();
     while (tick_game())
     {
         // calculate FPS
@@ -112,7 +129,8 @@ int main(int argc, char **argv)
         lastTime = time;
     }
 
-    /* SDL_DestroyTexture(tex); */
+    /* SDL_DestroyTexture(tex); */ // TODO cleanup textures
+    IMG_Quit();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_Quit();
