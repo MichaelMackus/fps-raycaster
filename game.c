@@ -335,9 +335,9 @@ int tick_game()
             double y = (screenHeight - wallHeight) / 2;
 
             // calculate which part of texture to render
-            double wallX; // where within the wall did the ray hit
-            if (side == 0) wallX = rayPos.x - floor(rayPos.x);
-            else wallX = rayPos.y - floor(rayPos.y);
+            Vector difference = (Vector) { rayPos.x - floor(rayPos.x), rayPos.y - floor(rayPos.y) };
+            double wallX = sqrt(difference.x*difference.x + difference.y*difference.y);
+
             int texturePartWidth = 64; // width of a single texture within texture file
             int textureX = wallX * texturePartWidth;
 

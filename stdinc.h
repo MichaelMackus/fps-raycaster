@@ -52,6 +52,15 @@ static inline double distance(Vector from, Vector to)
             pow(to.y - from.y, 2));
 }
 
+// normalize vector to unit length 1
+static inline Vector normalize(Vector v)
+{
+    return (Vector) {
+        v.x / sqrt(v.x*v.x + v.y*v.y),
+        v.y / sqrt(v.x*v.x + v.y*v.y)
+    };
+}
+
 // returns 1-4 (quadrant)
 static inline int quadrant(double radians)
 {
