@@ -347,6 +347,8 @@ int tick_game()
 
             int texturePartWidth = 64; // width of a single texture within texture file
             int textureX = wallX * texturePartWidth;
+            if ((int) rayPos.y % 8 == 0 || (int) rayPos.x % 8 == 0)
+                textureX -= texturePartWidth; // Cameron suggested I add this texture
 
             // draw texture
             draw_texture(texture,
