@@ -52,6 +52,13 @@ static inline double distance(Vector from, Vector to)
             pow(to.y - from.y, 2));
 }
 
+static inline double absd(double d)
+{
+    if (d < 0) return d * -1;
+    else return d;
+}
+
+
 // normalize vector to unit length 1
 static inline Vector normalize(Vector v)
 {
