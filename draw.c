@@ -54,8 +54,11 @@ int draw_start(int layer)
 
     texture = textures[layer];
 
+    // TODO look into performance issues of setting blend mode
     SDL_SetRenderTarget(renderer, texture);
-    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
     SDL_RenderClear(renderer);
 
     return 0;
