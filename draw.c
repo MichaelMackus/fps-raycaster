@@ -24,6 +24,11 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
     return 0;
 }
 
+SDL_Renderer* get_renderer()
+{
+    return renderer;
+}
+
 int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend)
 {
     if (layer >= textures_size)
@@ -109,6 +114,11 @@ int draw_update(int layer)
     SDL_RenderPresent(renderer);
 
     return 0;
+}
+
+SDL_Texture* get_texture(int layer)
+{
+    return textures[layer];
 }
 
 SDL_Texture* load_texture(const char *filename)

@@ -7,6 +7,9 @@
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
 
+// get renderer
+SDL_Renderer* get_renderer();
+
 // initialize layer - this should be called once per draw loop per layer
 int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend);
 
@@ -18,6 +21,9 @@ int draw_start(int layer);
 
 // draw to the screen
 int draw_update(int layer);
+
+// get texture for layer
+SDL_Texture* get_texture(int layer);
 
 // load texture image
 SDL_Texture* load_texture(const char *filename);

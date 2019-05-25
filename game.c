@@ -40,6 +40,8 @@ int screenHeight;
 
 // our texture image
 static SDL_Texture *texture;
+static SDL_Surface *textureSurface;
+const char* texturePixels;
 int textureWidth;
 int textureHeight;
 
@@ -52,12 +54,24 @@ int init_game()
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 
-    texture = load_texture("wolftextures.png");
+    // load our texture image
+    textureSurface = IMG_Load("wolftextures.png");
+    
+    if (textureSurface == NULL)
+        return 1;
+
+    texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
 
     if (texture == NULL)
         return 1;
 
-    return SDL_QueryTexture(texture, NULL, NULL, &textureWidth, &textureHeight);
+    if (SDL_QueryTexture(texture, NULL, NULL, &textureWidth, &textureHeight))
+        return 1;
+
+    textureSurface = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+    texturePixels = (const char*) textureSurface->pixels;
+
+    return 0;
 }
 
 typedef enum {
@@ -142,14 +156,21 @@ int tick_game()
         player.dir = rotate(player.dir, 0.05f);
     }
 
-    // start drawing on layer 1
-    draw_start(1);
-
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
 
     // don't re-draw floors past this y-value
     int highestFloorY = screenHeight;
+
+    draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
+    draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
+
+    // get texture & lock for streaming
+    SDL_Texture *streamTexture = get_texture(2);
+    char *pixels;
+    int pitch;
+    SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
+    memset(pixels, 0, pitch*screenHeight); // clear streaming target
 
     // detect which squares the player can see, and draw them proportionally to distance
     for (int x = 0; x <= screenWidth; ++x)
@@ -350,6 +371,9 @@ int tick_game()
             if ((int) rayPos.y % 8 == 0 || (int) rayPos.x % 8 == 0)
                 textureX -= texturePartWidth; // Cameron suggested I add this texture
 
+            // draw walls on layer 1
+            draw_start(1);
+
             // draw texture
             draw_texture(texture,
                     texturePartWidth + textureX, 0, 1, textureHeight,
@@ -386,16 +410,21 @@ int tick_game()
                 double floorY = (floorPos.y - floor(floorPos.y)) * texturePartHeight;
                 double floorX = (floorPos.x - floor(floorPos.x)) * texturePartWidth;
 
-                // TODO perhaps draw with streaming access to texture, or use SDL_Surface
-                draw_texture(texture,
-                        texturePartWidth*3 + floorX, floorY, 1, 1,
-                        x, y, 1, 1);
+                const unsigned int offset = pitch*y + x*4;
+                const unsigned int textureOffset = 
+                    (texturePartWidth*3 + (int) floorX)*4 + (textureSurface->pitch * (int) floorY);
+                pixels[ offset + 0 ] = (char) (texturePixels[textureOffset + 1]);     // b
+                pixels[ offset + 1 ] = (char) (texturePixels[textureOffset + 2]); // g
+                pixels[ offset + 2 ] = (char) (texturePixels[textureOffset + 3]); // r
+                pixels[ offset + 3 ] = SDL_ALPHA_OPAQUE;                          // a
             }
         }
     }
 
-    // finish drawing to layer 1
-    draw_update(1);
+    SDL_UnlockTexture(streamTexture);
+
+    // finish drawing
+    draw_update(2);
 
     return playing;
 }
