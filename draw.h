@@ -7,7 +7,13 @@
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
 
-// clear & initialize target layer for drawing
+// initialize layer - this should be called once per draw loop per layer
+int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend);
+
+// set the layer for drawing
+//
+// This will implicitly call draw_init_layer for the layer. Do not rely on
+// this when calling draw_start with out of order layers.
 int draw_start(int layer);
 
 // draw to the screen

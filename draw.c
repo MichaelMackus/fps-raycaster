@@ -10,6 +10,9 @@ static int textures_size = 0;
 // current texture being drawn to
 static SDL_Texture *texture;
 
+// highest texture layer initialized
+static int layer_initialized = -1;
+
 int draw_init(SDL_Window *win, SDL_Renderer *r)
 {
     if (r == NULL)
@@ -21,7 +24,7 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
     return 0;
 }
 
-int draw_start(int layer)
+int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend)
 {
     if (layer >= textures_size)
     {
@@ -46,20 +49,34 @@ int draw_start(int layer)
 
         // initialize texture, or error
         textures[layer] = SDL_CreateTexture(renderer,
-                SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+                colorMode, accessMode, w, h);
 
         if (textures[layer] == NULL)
             return 1;
     }
 
     texture = textures[layer];
-
-    // TODO look into performance issues of setting blend mode
     SDL_SetRenderTarget(renderer, texture);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+    if (alphaBlend)
+    {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    }
+
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
     SDL_RenderClear(renderer);
+
+    layer_initialized = layer;
+}
+
+int draw_start(int layer)
+{
+    // only initialize layer first time
+    if (layer_initialized < layer) draw_init_layer(layer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 1);
+
+    texture = textures[layer];
+    SDL_SetRenderTarget(renderer, texture);
 
     return 0;
 }
@@ -85,6 +102,9 @@ int draw_update(int layer)
             SDL_RenderCopy(renderer, curLayer, NULL, NULL);
         }
     }
+
+    // reset initialized layer
+    layer_initialized = - 1;
 
     SDL_RenderPresent(renderer);
 
