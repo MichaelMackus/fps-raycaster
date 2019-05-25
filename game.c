@@ -61,21 +61,21 @@ int init_game()
 }
 
 typedef enum {
-    WALL_TOP,
-    WALL_RIGHT,
-    WALL_LEFT,
-    WALL_BOTTOM
+    WALL_NORTH,
+    WALL_EAST,
+    WALL_WEST,
+    WALL_SOUTH
 } WallSide;
 
 // whether vector hits wall side
 int hit_wall(Vector pos, WallSide side)
 {
-    if (side == WALL_BOTTOM)
+    if (side == WALL_SOUTH)
     {
         pos.y -= 1;
     }
 
-    if (side == WALL_RIGHT)
+    if (side == WALL_EAST)
     {
         pos.x -= 1;
     }
@@ -147,6 +147,9 @@ int tick_game()
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
+
+    // don't re-draw floors past this y-value
+    int highestFloorY = screenHeight;
 
     // detect which squares the player can see, and draw them proportionally to distance
     for (int x = 0; x <= screenWidth; ++x)
@@ -236,7 +239,7 @@ int tick_game()
 
         // increment ray pos until we hit wall, *or* go past map bounds
         int hit = 0;
-        int side; // 0 for x-intercept, 1 for y-intercept
+        WallSide side; // 0 for x-intercept, 1 for y-intercept
         while (hit == 0) // TODO bounds checking
         {
             // check for x-intercept
@@ -244,10 +247,10 @@ int tick_game()
             {
                 while (xIntercept.y <= yIntercept.y && hit == 0)
                 {
-                    if (hit_wall(xIntercept, WALL_TOP))
+                    if (hit_wall(xIntercept, WALL_NORTH))
                     {
                         hit = 1;
-                        side = 0;
+                        side = WALL_NORTH;
                         break;
                     }
                     xIntercept.x += xstep;
@@ -258,10 +261,10 @@ int tick_game()
             {
                 while (xIntercept.y >= yIntercept.y && hit == 0)
                 {
-                    if (hit_wall(xIntercept, WALL_BOTTOM))
+                    if (hit_wall(xIntercept, WALL_SOUTH))
                     {
                         hit = 1;
-                        side = 0;
+                        side = WALL_SOUTH;
                         break;
                     }
                     xIntercept.x += xstep;
@@ -274,10 +277,10 @@ int tick_game()
             {
                 while (yIntercept.x <= xIntercept.x && hit == 0)
                 {
-                    if (hit_wall(yIntercept, WALL_LEFT))
+                    if (hit_wall(yIntercept, WALL_WEST))
                     {
                         hit = 1;
-                        side = 1;
+                        side = WALL_WEST;
                         break;
                     }
                     yIntercept.y += ystep;
@@ -288,10 +291,10 @@ int tick_game()
             {
                 while (yIntercept.x >= xIntercept.x && hit == 0)
                 {
-                    if (hit_wall(yIntercept, WALL_RIGHT))
+                    if (hit_wall(yIntercept, WALL_EAST))
                     {
                         hit = 1;
-                        side = 1;
+                        side = WALL_EAST;
                         break;
                     }
                     yIntercept.y += ystep;
@@ -303,7 +306,7 @@ int tick_game()
         if (hit)
         {
             Vector rayPos;
-            if (side == 0)
+            if (side == WALL_NORTH || side == WALL_SOUTH)
             {
                 rayPos.x = xIntercept.x;
                 rayPos.y = xIntercept.y;
@@ -339,7 +342,7 @@ int tick_game()
             /* double wallX = sqrt(difference.x*difference.x + difference.y*difference.y); */
             // more efficient:
             double wallX; // where within the wall did the ray hit
-            if (side == 0) wallX = rayPos.x - floor(rayPos.x);
+            if (side == WALL_NORTH || side == WALL_SOUTH) wallX = rayPos.x - floor(rayPos.x);
             else wallX = rayPos.y - floor(rayPos.y);
 
             int texturePartWidth = 64; // width of a single texture within texture file
@@ -355,6 +358,37 @@ int tick_game()
             /* if (lighting > 1) lighting = 1; */
             /* if (side == 1) lighting *= 0.75; */
             /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
+
+            // calculate normalized rayPos from playerPos in order to multiply by distance
+            Vector normalRay = normalize((Vector) { rayPos.x - player.pos.x, rayPos.y - player.pos.y });
+            Vector floorPos = rayPos;
+
+            // draw floors below wall
+            int yStart = y + wallHeight;
+            int texturePartHeight = 64; // height of a single texture within texture file
+            for (y = yStart; y < screenHeight; ++y)
+            {
+                // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
+                double currentDist = screenHeight / (2.0 * y - screenHeight);
+                double t = currentDist / propDist; // weight factor
+
+                // using normalized vector: (too slow, uses sqrt)
+                /* double length = distance(floorPos, player.pos); */
+                /* floorPos.x += normalRay.x * length; // comes out squished */
+                /* floorPos.y += normalRay.y * length; */
+
+                // using linear interpolation:
+                floorPos.x = (1 - t) * player.pos.x + t * rayPos.x;
+                floorPos.y = (1 - t) * player.pos.y + t * rayPos.y;
+
+                double floorY = (floorPos.y - floor(floorPos.y)) * texturePartHeight;
+                double floorX = (floorPos.x - floor(floorPos.x)) * texturePartWidth;
+
+                // TODO perhaps draw with streaming access to texture, or use SDL_Surface
+                draw_texture(texture,
+                        texturePartWidth*3 + floorX, floorY, 1, 1,
+                        x, y, 1, 1);
+            }
         }
     }
 
