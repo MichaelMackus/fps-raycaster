@@ -7,6 +7,8 @@
 #define MAP_HEIGHT 19
 #define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
 
+#define ENEMY_SPRITE 11
+
 static Player player;
 
 Player get_player()
@@ -45,11 +47,18 @@ const char* texturePixels;
 int textureWidth;
 int textureHeight;
 
+// our sprite image
+static SDL_Texture *sprites;
+static SDL_Surface *spritesSurface;
+/* const char* spritePixels; */
+int spritesWidth;
+int spritesHeight;
+
 int init_game()
 {
     player.pos.x = 9.0f;
-    player.pos.y = 9.0f;
-    player.dir = 0.0f;
+    player.pos.y = 14.5f;
+    player.dir = to_radians(165);
     player.fov = to_radians(90);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
@@ -60,16 +69,62 @@ int init_game()
     if (textureSurface == NULL)
         return 1;
 
+    textureWidth = textureSurface->w;
+    textureHeight = textureSurface->h;
     texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
 
     if (texture == NULL)
         return 1;
 
-    if (SDL_QueryTexture(texture, NULL, NULL, &textureWidth, &textureHeight))
-        return 1;
-
+    // texture pixel format is ARGB8888
     textureSurface = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
     texturePixels = (const char*) textureSurface->pixels;
+
+    // load our sprites image
+    spritesSurface = IMG_Load("enemies.png");
+    // format is ABGR8888
+    spritesSurface = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+    char *spritesPixels = (char*) spritesSurface->pixels;
+
+    // make BG transparent
+    /* SDL_SetColorKey(spritesSurface, SDL_TRUE, */
+    /*         SDL_MapRGBA(textureSurface->format, */
+    /*             228, 225, 255, 255)); */
+                /* TODO not working: */
+                /* (int)spritesPixels[0], (int)spritesPixels[1], (int)spritesPixels[2], 255)); */
+
+    // make sprite outlines transparent
+    /* char transR = (char)255; */
+    /* char transG = (char)190; */
+    /* char transB = (char)213; */
+    /* printf("%d %d %d\n", transR, transG, transB); */
+    for (int x = 0; x < spritesSurface->w; ++x)
+    {
+        /* for (int y = 0; y < spritesSurface->h; ++y) */
+        for (int y = 0; y < 61; ++y)
+        {
+            const unsigned int offset = spritesSurface->pitch*y + x*4;
+            char r = spritesPixels[offset + 3];
+            char g = spritesPixels[offset + 2];
+            char b = spritesPixels[offset + 1];
+            // TODO make this more sensible
+            if (r < (char) 256 && g < (char)256 && b < (char)256)
+            {
+                spritesPixels[offset] = 0;
+            }
+        }
+    }
+
+    spritesSurface->pixels = spritesPixels;
+
+    if (spritesSurface == NULL)
+        return 1;
+
+    sprites = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
+    SDL_SetTextureBlendMode(sprites, SDL_BLENDMODE_BLEND);
+
+    if (sprites == NULL)
+        return 1;
 
     return 0;
 }
@@ -128,21 +183,21 @@ int tick_game()
     if(keystates[SDL_SCANCODE_W])
     {
         // walk forward in unit circle (unit circle x = cos, y = sin)
-        player.pos.x += cos(player.dir) / 5;
-        player.pos.y += sin(player.dir) / 5;
+        player.pos.x += cos(player.dir) / 10;
+        player.pos.y += sin(player.dir) / 10;
         if (map[(int) player.pos.y][(int) player.pos.x] == '#') {
-            player.pos.x -= cos(player.dir) / 5;
-            player.pos.y -= sin(player.dir) / 5;
+            player.pos.x -= cos(player.dir) / 10;
+            player.pos.y -= sin(player.dir) / 10;
         }
     }
     if(keystates[SDL_SCANCODE_S])
     {
         // walk backward in unit circle (unit circle x = cos, y = sin)
-        player.pos.x -= cos(player.dir) / 5;
-        player.pos.y -= sin(player.dir) / 5;
+        player.pos.x -= cos(player.dir) / 10;
+        player.pos.y -= sin(player.dir) / 10;
         if (map[(int) player.pos.y][(int) player.pos.x] == '#') {
-            player.pos.x += cos(player.dir) / 5;
-            player.pos.y += sin(player.dir) / 5;
+            player.pos.x += cos(player.dir) / 10;
+            player.pos.y += sin(player.dir) / 10;
         }
     }
     if (keystates[SDL_SCANCODE_A])
@@ -159,11 +214,9 @@ int tick_game()
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
 
-    // don't re-draw floors past this y-value
-    int highestFloorY = screenHeight;
-
     draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
     draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
+    draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
 
     // get texture & lock for streaming
     SDL_Texture *streamTexture = get_texture(2);
@@ -386,7 +439,7 @@ int tick_game()
             /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
 
             // calculate normalized rayPos from playerPos in order to multiply by distance
-            Vector normalRay = normalize((Vector) { rayPos.x - player.pos.x, rayPos.y - player.pos.y });
+            /* Vector normalRay = normalize((Vector) { rayPos.x - player.pos.x, rayPos.y - player.pos.y }); */
             Vector floorPos = rayPos;
 
             // draw floors below wall
@@ -413,7 +466,7 @@ int tick_game()
                 const unsigned int offset = pitch*y + x*4;
                 const unsigned int textureOffset = 
                     (texturePartWidth*3 + (int) floorX)*4 + (textureSurface->pitch * (int) floorY);
-                pixels[ offset + 0 ] = (char) (texturePixels[textureOffset + 1]);     // b
+                pixels[ offset + 0 ] = (char) (texturePixels[textureOffset + 1]); // b
                 pixels[ offset + 1 ] = (char) (texturePixels[textureOffset + 2]); // g
                 pixels[ offset + 2 ] = (char) (texturePixels[textureOffset + 3]); // r
                 pixels[ offset + 3 ] = SDL_ALPHA_OPAQUE;                          // a
@@ -423,8 +476,25 @@ int tick_game()
 
     SDL_UnlockTexture(streamTexture);
 
+    // draw enemies & ceiling on layer 3
+    draw_start(3);
+
+    SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
+    SDL_RenderCopyEx(get_renderer(),
+            streamTexture,
+            &rect,
+            &rect,
+            0,
+            NULL,
+            SDL_FLIP_VERTICAL);
+
+    // draw texture
+    draw_texture(sprites,
+            61*ENEMY_SPRITE + 3, 0, 61, 61,
+            300, 200, 160, 160);
+
     // finish drawing
-    draw_update(2);
+    draw_update(3);
 
     return playing;
 }
