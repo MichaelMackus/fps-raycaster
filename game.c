@@ -517,12 +517,6 @@ int tick_game()
         {
             Vector enemyPos = enemies[x];
 
-            // calculate proportional (perpendicular) distance from player to enemy
-            double propDist = cos(player.dir) * (enemyPos.x - player.pos.x) + sin(player.dir) * (enemyPos.y - player.pos.y);
-            double proportion = 1 / propDist;
-            if (proportion < 0)
-                proportion = 0;
-
             // calculate angle to enemy using dot product
             Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
             Vector venemy = (Vector) { enemyPos.x - player.pos.x, enemyPos.y - player.pos.y };
@@ -535,15 +529,30 @@ int tick_game()
                     (player.dir > M_PI && (normEnemy.x < normPlayer.x)))
                 side = -1; // left side
 
-            // calculate enemy height & ypos
-            double enemyHeight = screenHeight * proportion;
+            // dist is euclidian distance (from player to enemy)
+            double dist = distance(player.pos, enemyPos);
+            // midX & midY are middle of the screen
             double midX = screenWidth / 2;
             double midY = screenHeight / 2;
-            double normalDistX = sin(angle) * midX;
-            double spriteY = midY - enemyHeight/2;
-            double spriteX = (midX - enemyHeight/2) + (side * normalDistX);
+            // distX & distY are perpendicular distance from camera in X & Y
+            double distX = sin(angle) * dist;
+            double distY = cos(angle) * dist;
 
-            if (angle <= player.fov/2)
+            // calculate proportional (perpendicular) distance from player to enemy
+            double proportion = 1 / distY;
+            if (proportion < 0)
+                proportion = 0;
+            double enemyHeight = screenHeight * proportion;
+
+            // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
+            // Generally to project a 3D point to a 2D plane you do x2d = x3d *
+            // projection_plane_distance / z3d (same for y2d and y3d). Almost
+            // everything in a raycaster boils down to that
+            //
+            double spriteX = (midX - enemyHeight/2) + side * (distX*distanceToSurface/distY);
+            double spriteY = midY - enemyHeight/2;
+
+            if (angle <= player.fov)
             {
                 // draw texture
                 draw_texture(sprites,
