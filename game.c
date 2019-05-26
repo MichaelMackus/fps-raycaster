@@ -8,7 +8,7 @@
 #define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
 
 #define ENEMY_SPRITE 11
-#define ENEMY_COUNT 1
+#define ENEMY_COUNT 5
 
 static Player player;
 
@@ -58,12 +58,11 @@ int spritesHeight;
 // z-index of drawn walls
 static double* wallZ;
 Vector enemies[ENEMY_COUNT] = { 
-    (Vector) { 3, 3 },
-    (Vector) { 8, 16 },
-    (Vector) { 6, 22 },
-    (Vector) { 6, 6 },
-    (Vector) { 9, 2 },
-    (Vector) { 9, 12 }
+    { 3, 3 },
+    { 8, 16 },
+    { 6, 22 },
+    { 6, 6 },
+    { 9, 2 }
 };
 
 int init_game()
@@ -506,59 +505,50 @@ int tick_game()
             NULL,
             SDL_FLIP_VERTICAL);
 
-    Vector left;
-    Vector right;
-
     for (int i = 0; i < ENEMY_COUNT; ++i)
     {
-        Vector enemy = enemies[i];
+        Vector enemyPos = enemies[i];
+        // calculate angle to enemy using dot product
+        Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
+        Vector venemy = (Vector) { enemyPos.x - player.pos.x, enemyPos.y - player.pos.y };
+        Vector normEnemy = normalize(venemy);
+        double angle = acos(dot_product(normPlayer, normEnemy));
 
-        for (int x = 0; x < ENEMY_COUNT; ++x)
+        // dist is euclidian distance (from player to enemy)
+        double dist = distance(player.pos, enemyPos);
+        // midX & midY are middle of the screen
+        double midX = screenWidth / 2;
+        double midY = screenHeight / 2;
+        // distX & distY are perpendicular distance from camera in X & Y
+        double distX = sin(angle) * dist;
+        double distY = cos(angle) * dist;
+
+        // calculate proportional (perpendicular) distance from player to enemy
+        double proportion = 1 / distY;
+        if (proportion < 0)
+            proportion = 0;
+        double enemyHeight = screenHeight * proportion;
+
+        // calculate which side of screen
+        int side = 1; // right side
+        if ((player.dir <= M_PI && (cos(player.dir)*distY + player.pos.x < enemyPos.x)) ||
+                (player.dir > M_PI && (cos(player.dir)*distY + player.pos.x > enemyPos.x)))
+            side = -1; // left side
+
+        // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
+        // Generally to project a 3D point to a 2D plane you do x2d = x3d *
+        // projection_plane_distance / z3d (same for y2d and y3d). Almost
+        // everything in a raycaster boils down to that
+        //
+        double spriteX = (midX - enemyHeight/2) + side * (distX*distanceToSurface/distY);
+        double spriteY = midY - enemyHeight/2;
+
+        if (angle <= player.fov)
         {
-            Vector enemyPos = enemies[x];
-
-            // calculate angle to enemy using dot product
-            Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
-            Vector venemy = (Vector) { enemyPos.x - player.pos.x, enemyPos.y - player.pos.y };
-            Vector normEnemy = normalize(venemy);
-            double angle = acos(dot_product(normPlayer, normEnemy));
-
-            // dist is euclidian distance (from player to enemy)
-            double dist = distance(player.pos, enemyPos);
-            // midX & midY are middle of the screen
-            double midX = screenWidth / 2;
-            double midY = screenHeight / 2;
-            // distX & distY are perpendicular distance from camera in X & Y
-            double distX = sin(angle) * dist;
-            double distY = cos(angle) * dist;
-
-            // calculate proportional (perpendicular) distance from player to enemy
-            double proportion = 1 / distY;
-            if (proportion < 0)
-                proportion = 0;
-            double enemyHeight = screenHeight * proportion;
-
-            // calculate which side of screen
-            int side = 1; // right side
-            if ((player.dir <= M_PI && (cos(player.dir)*distY + player.pos.x < enemy.x)) ||
-                    (player.dir > M_PI && (cos(player.dir)*distY + player.pos.x > enemy.x)))
-                side = -1; // left side
-
-            // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
-            // Generally to project a 3D point to a 2D plane you do x2d = x3d *
-            // projection_plane_distance / z3d (same for y2d and y3d). Almost
-            // everything in a raycaster boils down to that
-            //
-            double spriteX = (midX - enemyHeight/2) + side * (distX*distanceToSurface/distY);
-            double spriteY = midY - enemyHeight/2;
-
-            if (angle <= player.fov)
-            {
-                // draw texture
-                draw_texture(sprites,
-                        61*ENEMY_SPRITE + 3, 0, 61, 61,
-                        spriteX, spriteY, enemyHeight, enemyHeight);
-            }
+            // draw texture
+            draw_texture(sprites,
+                    61*ENEMY_SPRITE + 3, 0, 61, 61,
+                    spriteX, spriteY, enemyHeight, enemyHeight);
         }
     }
 
