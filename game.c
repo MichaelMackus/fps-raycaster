@@ -49,20 +49,28 @@ int textureWidth;
 int textureHeight;
 
 // our sprite image
-static SDL_Texture *sprites;
+static SDL_Texture *spritesTexture;
 static SDL_Surface *spritesSurface;
-/* const char* spritePixels; */
-int spritesWidth;
-int spritesHeight;
+/* const char* spritesPixels; */
 
 // z-index of drawn walls
 static double* wallZ;
-Vector enemies[ENEMY_COUNT] = { 
-    { 3, 3 },
-    { 8, 16 },
-    { 6, 22 },
-    { 6, 6 },
-    { 9, 2 }
+
+// representing sprite on screen
+typedef struct {
+    double distX; // perpendicular X distance from player
+    double distY; // perpendicular Y distance (depth) from player
+    double angle; // angle from player dir
+    Vector pos; // position on 2d map
+} Sprite;
+
+// sprites
+Sprite enemies[ENEMY_COUNT] = { 
+    { 0, 0, 0, { 3, 3 } },
+    { 0, 0, 0, { 8, 16 } },
+    { 0, 0, 0, { 6, 22 } },
+    { 0, 0, 0, { 6, 6 } },
+    { 0, 0, 0, { 9, 2 } }
 };
 
 int init_game()
@@ -94,7 +102,7 @@ int init_game()
     textureSurface = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
     texturePixels = (const char*) textureSurface->pixels;
 
-    // load our sprites image
+    // load our spritesTexture image
     spritesSurface = IMG_Load("enemies.png");
     // format is ABGR8888
     spritesSurface = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
@@ -134,10 +142,10 @@ int init_game()
     if (spritesSurface == NULL)
         return 1;
 
-    sprites = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
-    SDL_SetTextureBlendMode(sprites, SDL_BLENDMODE_BLEND);
+    spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
+    SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
 
-    if (sprites == NULL)
+    if (spritesTexture == NULL)
         return 1;
 
     return 0;
@@ -164,6 +172,17 @@ int hit_wall(Vector pos, WallSide side)
     }
 
     return (map[(int) pos.y][(int) pos.x] == '#');
+}
+
+// sort function for sorting enemies by depth
+int sort_enemies(const Sprite *e1, const Sprite *e2)
+{
+    if (e1->distY > e2->distY)
+        return -1;
+    else if (e1->distY == e2->distY)
+        return 0;
+    else
+        return 1;
 }
 
 int tick_game()
@@ -492,10 +511,8 @@ int tick_game()
 
     SDL_UnlockTexture(streamTexture);
 
-    // draw enemies & ceiling on layer 3
-    draw_start(3);
-
-    // copy floor to ceiling
+    // copy floor to ceiling (layer 1 - texture target)
+    draw_start(1);
     SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
     SDL_RenderCopyEx(get_renderer(),
             streamTexture,
@@ -505,50 +522,70 @@ int tick_game()
             NULL,
             SDL_FLIP_VERTICAL);
 
+    // setup enemy distance & angle for sorting
     for (int i = 0; i < ENEMY_COUNT; ++i)
     {
-        Vector enemyPos = enemies[i];
+        Sprite *enemy = &enemies[i];
+        Vector enemyPos = enemies[i].pos;
         // calculate angle to enemy using dot product
         Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
         Vector venemy = (Vector) { enemyPos.x - player.pos.x, enemyPos.y - player.pos.y };
         Vector normEnemy = normalize(venemy);
-        double angle = acos(dot_product(normPlayer, normEnemy));
+        enemy->angle = acos(dot_product(normPlayer, normEnemy));
 
         // dist is euclidian distance (from player to enemy)
         double dist = distance(player.pos, enemyPos);
-        // midX & midY are middle of the screen
-        double midX = screenWidth / 2;
-        double midY = screenHeight / 2;
         // distX & distY are perpendicular distance from camera in X & Y
-        double distX = sin(angle) * dist;
-        double distY = cos(angle) * dist;
+        enemy->distX = sin(enemy->angle) * dist;
+        enemy->distY = cos(enemy->angle) * dist;
+    }
 
-        // calculate proportional (perpendicular) distance from player to enemy
-        double proportion = 1 / distY;
-        if (proportion < 0)
-            proportion = 0;
-        double enemyHeight = screenHeight * proportion;
+    // sort the enemies by distance
+    qsort(&enemies[0], ENEMY_COUNT, sizeof(enemies[0]), sort_enemies);
+
+    draw_start(3); // layer 3 - sprites (renderer target)
+    for (int i = 0; i < ENEMY_COUNT; ++i)
+    {
+        Sprite enemy = enemies[i];
+        Vector enemyPos = enemy.pos;
 
         // calculate which side of screen
         int side = 1; // right side
-        if ((player.dir <= M_PI && (cos(player.dir)*distY + player.pos.x < enemyPos.x)) ||
-                (player.dir > M_PI && (cos(player.dir)*distY + player.pos.x > enemyPos.x)))
+        if ((player.dir <= M_PI && (cos(player.dir)*enemy.distY + player.pos.x < enemyPos.x)) ||
+                (player.dir > M_PI && (cos(player.dir)*enemy.distY + player.pos.x > enemyPos.x)))
             side = -1; // left side
+
+        // midX & midY are middle of the screen
+        double midX = screenWidth / 2;
+        double midY = screenHeight / 2;
+
+        // calculate proportional (perpendicular) distance from player to enemy
+        double proportion = 1 / enemy.distY;
+        if (proportion < 0)
+            proportion = 0;
+        double enemyHeight = screenHeight * proportion;
 
         // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
         // Generally to project a 3D point to a 2D plane you do x2d = x3d *
         // projection_plane_distance / z3d (same for y2d and y3d). Almost
         // everything in a raycaster boils down to that
         //
-        double spriteX = (midX - enemyHeight/2) + side * (distX*distanceToSurface/distY);
+        double spriteX = (midX - enemyHeight/2) + side * (enemy.distX*distanceToSurface/enemy.distY);
         double spriteY = midY - enemyHeight/2;
 
-        if (angle <= player.fov)
+        if (enemy.angle <= player.fov)
         {
-            // draw texture
-            draw_texture(sprites,
-                    61*ENEMY_SPRITE + 3, 0, 61, 61,
-                    spriteX, spriteY, enemyHeight, enemyHeight);
+            // draw texture column by column, only if z value higher than wallZ
+            int textureOffset = 61*ENEMY_SPRITE + 3;
+            double step = enemyHeight / 61;
+            for (int x = 0; x < 61; ++x)
+            {
+                if (wallZ[(int) (spriteX + x*step)] <= enemy.distY) continue; // skip drawing over closer walls
+                // draw sprite
+                draw_texture(spritesTexture,
+                        textureOffset + x, 0, 1, 61,
+                        spriteX + x*step, spriteY, ceil(step), enemyHeight);
+            }
         }
     }
 
