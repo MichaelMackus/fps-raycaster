@@ -68,6 +68,12 @@ static inline Vector normalize(Vector v)
     };
 }
 
+// calculate dot product between vectors
+static inline double dot_product(Vector v1, Vector v2)
+{
+    return v1.x*v2.x + v1.y*v2.y;
+}
+
 // returns 1-4 (quadrant)
 static inline int quadrant(double radians)
 {

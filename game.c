@@ -8,6 +8,7 @@
 #define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
 
 #define ENEMY_SPRITE 11
+#define ENEMY_COUNT 1
 
 static Player player;
 
@@ -54,14 +55,28 @@ static SDL_Surface *spritesSurface;
 int spritesWidth;
 int spritesHeight;
 
+// z-index of drawn walls
+static double* wallZ;
+Vector enemies[ENEMY_COUNT] = { 
+    (Vector) { 3, 3 },
+    (Vector) { 8, 16 },
+    (Vector) { 6, 22 },
+    (Vector) { 6, 6 },
+    (Vector) { 9, 2 },
+    (Vector) { 9, 12 }
+};
+
 int init_game()
 {
-    player.pos.x = 9.0f;
-    player.pos.y = 14.5f;
-    player.dir = to_radians(165);
+    player.pos.x = 5.6f;
+    player.pos.y = 8.6f;
+    player.dir = to_radians(248);
     player.fov = to_radians(90);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
+
+    // initialize wallZ array
+    wallZ = malloc(sizeof(*wallZ) * screenWidth);
 
     // load our texture image
     textureSurface = IMG_Load("wolftextures.png");
@@ -229,7 +244,7 @@ int tick_game()
     for (int x = 0; x <= screenWidth; ++x)
     {
         // calculate ray direction
-        // double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth); // generates distortion towards edges
+        /* double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth); // generates distortion towards edges */
         // fix for increased distortion towards screen edges
         // see: https://stackoverflow.com/questions/24173966/raycasting-engine-rendering-creating-slight-distortion-increasing-towards-edges
         double rayDir = player.dir + atan((x - screenWidth/2.0f) / distanceToSurface);
@@ -402,6 +417,8 @@ int tick_game()
             // which expands into:
             double propDist = cos(player.dir) * (rayPos.x - player.pos.x) + sin(player.dir) * (rayPos.y - player.pos.y);
 
+            wallZ[x] = propDist;
+
             // calculate wall proportion percentage
             double proportion = 1 / propDist;
             if (proportion < 0)
@@ -479,6 +496,7 @@ int tick_game()
     // draw enemies & ceiling on layer 3
     draw_start(3);
 
+    // copy floor to ceiling
     SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
     SDL_RenderCopyEx(get_renderer(),
             streamTexture,
@@ -488,10 +506,52 @@ int tick_game()
             NULL,
             SDL_FLIP_VERTICAL);
 
-    // draw texture
-    draw_texture(sprites,
-            61*ENEMY_SPRITE + 3, 0, 61, 61,
-            300, 200, 160, 160);
+    Vector left;
+    Vector right;
+
+    for (int i = 0; i < ENEMY_COUNT; ++i)
+    {
+        Vector enemy = enemies[i];
+
+        for (int x = 0; x < ENEMY_COUNT; ++x)
+        {
+            Vector enemyPos = enemies[x];
+
+            // calculate proportional (perpendicular) distance from player to enemy
+            double propDist = cos(player.dir) * (enemyPos.x - player.pos.x) + sin(player.dir) * (enemyPos.y - player.pos.y);
+            double proportion = 1 / propDist;
+            if (proportion < 0)
+                proportion = 0;
+
+            // calculate angle to enemy using dot product
+            Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
+            Vector venemy = (Vector) { enemyPos.x - player.pos.x, enemyPos.y - player.pos.y };
+            Vector normEnemy = normalize(venemy);
+            double angle = acos(dot_product(normPlayer, normEnemy));
+
+            // calculate which side of screen
+            int side = 1; // right side
+            if ((player.dir <= M_PI && (normEnemy.x > normPlayer.x)) ||
+                    (player.dir > M_PI && (normEnemy.x < normPlayer.x)))
+                side = -1; // left side
+
+            // calculate enemy height & ypos
+            double enemyHeight = screenHeight * proportion;
+            double midX = screenWidth / 2;
+            double midY = screenHeight / 2;
+            double normalDistX = sin(angle) * midX;
+            double spriteY = midY - enemyHeight/2;
+            double spriteX = (midX - enemyHeight/2) + (side * normalDistX);
+
+            if (angle <= player.fov/2)
+            {
+                // draw texture
+                draw_texture(sprites,
+                        61*ENEMY_SPRITE + 3, 0, 61, 61,
+                        spriteX, spriteY, enemyHeight, enemyHeight);
+            }
+        }
+    }
 
     // finish drawing
     draw_update(3);
