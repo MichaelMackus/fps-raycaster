@@ -523,12 +523,6 @@ int tick_game()
             Vector normEnemy = normalize(venemy);
             double angle = acos(dot_product(normPlayer, normEnemy));
 
-            // calculate which side of screen
-            int side = 1; // right side
-            if ((player.dir <= M_PI && (normEnemy.x > normPlayer.x)) ||
-                    (player.dir > M_PI && (normEnemy.x < normPlayer.x)))
-                side = -1; // left side
-
             // dist is euclidian distance (from player to enemy)
             double dist = distance(player.pos, enemyPos);
             // midX & midY are middle of the screen
@@ -543,6 +537,12 @@ int tick_game()
             if (proportion < 0)
                 proportion = 0;
             double enemyHeight = screenHeight * proportion;
+
+            // calculate which side of screen
+            int side = 1; // right side
+            if ((player.dir <= M_PI && (cos(player.dir)*distY + player.pos.x < enemy.x)) ||
+                    (player.dir > M_PI && (cos(player.dir)*distY + player.pos.x > enemy.x)))
+                side = -1; // left side
 
             // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
             // Generally to project a 3D point to a 2D plane you do x2d = x3d *
