@@ -541,7 +541,7 @@ int tick_game()
     }
 
     // sort the enemies by distance
-    qsort(&enemies[0], ENEMY_COUNT, sizeof(enemies[0]), sort_enemies);
+    qsort(&enemies[0], ENEMY_COUNT, sizeof(enemies[0]), (const void*) sort_enemies);
 
     draw_start(3); // layer 3 - sprites (renderer target)
     for (int i = 0; i < ENEMY_COUNT; ++i)

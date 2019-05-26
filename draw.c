@@ -73,6 +73,8 @@ int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend)
     SDL_RenderClear(renderer);
 
     layer_initialized = layer;
+
+    return 0;
 }
 
 int draw_start(int layer)
@@ -95,7 +97,6 @@ int draw_update(int layer)
     {
         int w, h;
         get_screen_dimensions(&w, &h);
-        SDL_Rect screen = { 0, 0, w, h };
 
         for (int i = 0; i < textures_size; i++)
         {
