@@ -68,16 +68,16 @@ typedef struct {
 Sprite enemies[ENEMY_COUNT] = { 
     { 0, 0, 0, { 3, 3 } },
     { 0, 0, 0, { 8, 16 } },
-    { 0, 0, 0, { 6, 22 } },
+    { 0, 0, 0, { 6, 17 } },
     { 0, 0, 0, { 6, 6 } },
     { 0, 0, 0, { 9, 2 } }
 };
 
 int init_game()
 {
-    player.pos.x = 5.6f;
-    player.pos.y = 8.6f;
-    player.dir = to_radians(248);
+    player.pos.x = 9.5;
+    player.pos.y = 9.5;
+    player.dir = to_radians(90);
     player.fov = to_radians(90);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
@@ -236,16 +236,16 @@ int tick_game()
     if (keystates[SDL_SCANCODE_A])
     {
         // turn left
-        player.dir = rotate(player.dir, -0.05f);
+        player.dir = rotate(player.dir, -0.05);
     }
     if (keystates[SDL_SCANCODE_D])
     {
         // turn right
-        player.dir = rotate(player.dir, 0.05f);
+        player.dir = rotate(player.dir, 0.05);
     }
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
-    double distanceToSurface = (screenWidth/2.0f) / tan(player.fov/2);
+    double distanceToSurface = (screenWidth/2.0) / tan(player.fov/2);
 
     draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
     draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
@@ -265,7 +265,7 @@ int tick_game()
         /* double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth); // generates distortion towards edges */
         // fix for increased distortion towards screen edges
         // see: https://stackoverflow.com/questions/24173966/raycasting-engine-rendering-creating-slight-distortion-increasing-towards-edges
-        double rayDir = player.dir + atan((x - screenWidth/2.0f) / distanceToSurface);
+        double rayDir = player.dir + atan((x - screenWidth/2.0) / distanceToSurface);
 
         // set tileStepX and tileStepY
         int tileStepX = 0;
@@ -325,11 +325,13 @@ int tick_game()
         xIntercept.y = player.pos.y + (cellDistance.y * (double) tileStepY);
 
         // calculate ystep and xstep for ray projection
-        double xstep = rayDir == 0 ? 0 : 1 / tan(rayDir);
+        // TODO using float here as a quick fix for precision issues
+        // TODO need to check for both conditions below in hit loop in order to prevent endless loop
+        float xstep = rayDir == 0 ? 0 : 1 / tan(rayDir);
         if (xstep < 0) // TODO cleanup
             xstep = xstep * -1;
         xstep = xstep * tileStepX;
-        double ystep = tan(rayDir);
+        float ystep = tan(rayDir);
         if (ystep < 0) // TODO cleanup
             ystep = ystep * -1;
         ystep = ystep * tileStepY;
