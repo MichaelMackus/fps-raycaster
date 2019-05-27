@@ -254,7 +254,7 @@ int tick_game()
     memset(pixels, 0, pitch*screenHeight); // clear streaming target
 
     // detect which squares the player can see, and draw them proportionally to distance
-    for (int x = 0; x <= screenWidth; ++x)
+    for (int x = 0; x < screenWidth; ++x)
     {
         // calculate ray direction
         /* double rayDir = player.dir - (player.fov/2) + x * (player.fov/screenWidth); // generates distortion towards edges */
@@ -578,7 +578,13 @@ int tick_game()
             double step = enemyHeight / 61;
             for (int x = 0; x < 61; ++x)
             {
-                if (wallZ[(int) (spriteX + x*step)] <= enemy.distY) continue; // skip drawing over closer walls
+                // protect drawing past screen edges
+                int screenColumn = (int) (spriteX + x*step);
+                if (screenColumn < 0 || screenColumn >= screenWidth) continue;
+
+                // skip drawing over closer walls
+                if (wallZ[screenColumn] <= enemy.distY) continue;
+
                 // draw sprite
                 draw_texture(spritesTexture,
                         textureOffsetX + x, textureOffsetY, 1, 61,
