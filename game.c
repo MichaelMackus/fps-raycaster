@@ -7,7 +7,6 @@
 #define MAP_HEIGHT 19
 #define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
 
-#define ENEMY_SPRITE 11
 #define ENEMY_COUNT 5
 
 static Player player;
@@ -58,6 +57,7 @@ static double* wallZ;
 
 // representing sprite on screen
 typedef struct {
+    int index; // index in sprite sheet
     double distX; // perpendicular X distance from player
     double distY; // perpendicular Y distance (depth) from player
     double angle; // angle from player dir
@@ -66,11 +66,11 @@ typedef struct {
 
 // sprites
 Sprite enemies[ENEMY_COUNT] = { 
-    { 0, 0, 0, { 3, 3 } },
-    { 0, 0, 0, { 8, 16 } },
-    { 0, 0, 0, { 6, 17 } },
-    { 0, 0, 0, { 6, 6 } },
-    { 0, 0, 0, { 9, 2 } }
+    { 6*13 + 5, 0, 0, 0, { 3, 3 } },
+    { 13 + 2, 0, 0, 0, { 8, 16 } },
+    { 11, 0, 0, 0, { 6, 17 } },
+    { 13 + 2, 0, 0, 0, { 6, 6 } },
+    { 13 + 2, 0, 0, 0, { 9, 2 } }
 };
 
 int init_game()
@@ -116,14 +116,9 @@ int init_game()
                 /* (int)spritesPixels[0], (int)spritesPixels[1], (int)spritesPixels[2], 255)); */
 
     // make sprite outlines transparent
-    /* char transR = (char)255; */
-    /* char transG = (char)190; */
-    /* char transB = (char)213; */
-    /* printf("%d %d %d\n", transR, transG, transB); */
     for (int x = 0; x < spritesSurface->w; ++x)
     {
-        /* for (int y = 0; y < spritesSurface->h; ++y) */
-        for (int y = 0; y < 61; ++y)
+        for (int y = 0; y < spritesSurface->h; ++y)
         {
             const unsigned int offset = spritesSurface->pitch*y + x*4;
             char r = spritesPixels[offset + 3];
@@ -578,14 +573,15 @@ int tick_game()
         if (enemy.angle <= player.fov)
         {
             // draw texture column by column, only if z value higher than wallZ
-            int textureOffset = 61*ENEMY_SPRITE + 3;
+            int textureOffsetX = 61*(enemy.index % 13) + 3;
+            int textureOffsetY = floor(enemy.index / 13) * 61;
             double step = enemyHeight / 61;
             for (int x = 0; x < 61; ++x)
             {
                 if (wallZ[(int) (spriteX + x*step)] <= enemy.distY) continue; // skip drawing over closer walls
                 // draw sprite
                 draw_texture(spritesTexture,
-                        textureOffset + x, 0, 1, 61,
+                        textureOffsetX + x, textureOffsetY, 1, 61,
                         spriteX + x*step, spriteY, ceil(step), enemyHeight);
             }
         }
