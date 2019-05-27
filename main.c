@@ -87,15 +87,6 @@ int main(int argc, char **argv)
     unsigned int lastTime;
     lastTime = SDL_GetTicks();
 
-    // draw background layer
-    draw_start(0);
-    draw_gradient(0, 0, width, height / 2, 1000,
-            122, 122, 122, 255,
-            0, 0, 0, 255);
-    draw_gradient(0, height / 2, width, height / 2, 1000,
-            0, 0, 0, 255,
-            61, 61, 61, 255);
-
     if (init_game() == 1)
     {
         printf("Error initializing game.\n");
