@@ -99,13 +99,26 @@ int init_game()
         return 1;
 
     // texture pixel format is ARGB8888
-    textureSurface = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+
+    if (tmp == NULL)
+        return 1;
+
+    SDL_FreeSurface(textureSurface);
+    textureSurface = tmp;
     texturePixels = (const char*) textureSurface->pixels;
 
     // load our spritesTexture image
     spritesSurface = IMG_Load("enemies.png");
+
     // format is ABGR8888
-    spritesSurface = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+    tmp = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
+
+    if (tmp == NULL)
+        return 1;
+
+    SDL_FreeSurface(spritesSurface);
+    spritesSurface = tmp;
     char *spritesPixels = (char*) spritesSurface->pixels;
 
     // make BG transparent
@@ -142,6 +155,18 @@ int init_game()
 
     if (spritesTexture == NULL)
         return 1;
+
+    return 0;
+}
+
+int destroy_game()
+{
+    free(wallZ);
+
+    SDL_DestroyTexture(spritesTexture);
+    SDL_FreeSurface(spritesSurface);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(textureSurface);
 
     return 0;
 }

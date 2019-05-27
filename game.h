@@ -12,6 +12,9 @@ typedef struct {
 // initialize game data
 int init_game();
 
+// free game data
+int destroy_game();
+
 // represents one tick (frame) in the game loop
 // return 0 = quit, 1 = continue
 int tick_game();

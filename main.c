@@ -120,7 +120,9 @@ int main(int argc, char **argv)
         lastTime = time;
     }
 
-    /* SDL_DestroyTexture(tex); */ // TODO cleanup textures
+    destroy_game();
+    draw_free();
+
     IMG_Quit();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);

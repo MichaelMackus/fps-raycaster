@@ -24,6 +24,18 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
     return 0;
 }
 
+int draw_free()
+{
+    for (int i = 0; i < textures_size; ++i)
+    {
+        SDL_DestroyTexture(textures[i]);
+    }
+
+    if (textures != NULL) free(textures);
+
+    return 0;
+}
+
 SDL_Renderer* get_renderer()
 {
     return renderer;

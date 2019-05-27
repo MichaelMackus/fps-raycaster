@@ -7,6 +7,9 @@
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
 
+// free memory (cannot call other draw calls without draw_init again)
+int draw_free();
+
 // get renderer
 SDL_Renderer* get_renderer();
 
