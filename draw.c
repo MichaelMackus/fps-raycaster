@@ -13,6 +13,13 @@ static SDL_Texture *texture;
 // highest texture layer initialized
 static int layer_initialized = -1;
 
+// internal texture data struct
+typedef struct {
+    SDL_Texture *sdlTexture;
+    SDL_Surface *surface;
+    SDL_Surface *converted;
+} TextureData;
+
 int draw_init(SDL_Window *win, SDL_Renderer *r)
 {
     if (r == NULL)
@@ -134,6 +141,41 @@ SDL_Texture* get_texture(int layer)
     return textures[layer];
 }
 
+int update_pixels(Texture *texture, const Pixel *pixels)
+{
+    TextureData *data = texture->data;
+
+    // create temporary pixels container
+    Uint32 *tmp = malloc(sizeof(*tmp) * texture->width * texture->height);
+    if (tmp == NULL) return 1;
+
+    for (int x = 0; x < texture->width; ++x)
+    {
+        for (int y = 0; y < texture->height; ++y)
+        {
+            const unsigned int offset = (data->surface->pitch/4)*y + x;
+
+            // it is important we do not use the format of the surface, since that could be different
+            tmp[offset] = SDL_MapRGBA(data->converted->format,
+                    pixels[offset].r,
+                    pixels[offset].g,
+                    pixels[offset].b,
+                    pixels[offset].a);
+        }
+    }
+
+    if (SDL_UpdateTexture(data->sdlTexture,
+            NULL,
+            tmp,
+            data->surface->pitch) != 0)
+        return 1;
+
+    free(tmp);
+    texture->pixels = pixels;
+
+    return 0;
+}
+
 Texture* load_texture(const char *filename)
 {
     SDL_Surface *surface = IMG_Load(filename);
@@ -161,25 +203,41 @@ Texture* load_texture(const char *filename)
         {
             for (int y = 0; y < surface->h; ++y)
             {
-                // pitch is in bytes, so need to divide by 4 to get 32 bit pitch
-                const unsigned int offset = (surface->pitch/4)*y + x;
-
-                SDL_GetRGB(rawPixels[offset],
+                const unsigned int offset = (surface->pitch/4)*y + x; // pitch is in bytes (32/4=8 bits per byte)
+                SDL_GetRGBA(rawPixels[offset],
                         surface->format,
                         &(targetPixels[offset].r),
                         &(targetPixels[offset].g),
-                        &(targetPixels[offset].b));
+                        &(targetPixels[offset].b),
+                        &(targetPixels[offset].a));
             }
         }
 
         texture->pixels = targetPixels;
     }
 
-    SDL_Texture *data = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_SetTextureBlendMode(data, SDL_BLENDMODE_BLEND); // TODO configure alpha somewhere
+    SDL_Texture *sdlTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_SetTextureBlendMode(sdlTexture, SDL_BLENDMODE_BLEND); // TODO configure alpha somewhere
+
+    TextureData *data = malloc(sizeof(TextureData));
     texture->data = data;
 
-    SDL_FreeSurface(surface);
+    data->sdlTexture = sdlTexture;
+    data->surface = surface;
+
+    // update texture data with format of texture
+    Uint32 format;
+    SDL_QueryTexture(sdlTexture, &format, NULL, NULL, NULL);
+
+    // store converted surface format for pixel updates
+    data->converted = SDL_ConvertSurfaceFormat(surface, format, 0);
+
+    printf("Surface: %s\n",
+            SDL_GetPixelFormatName(surface->format->format));
+    printf("Converted Surface: %s\n",
+            SDL_GetPixelFormatName(data->converted->format->format));
+    printf("Texture: %s\n",
+            SDL_GetPixelFormatName(format));
 
     return texture;
 }

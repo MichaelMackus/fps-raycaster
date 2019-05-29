@@ -51,6 +51,10 @@ int draw_update(int layer);
 //  1) drawing sprites/textures on the screen - particularly, slices of the textures
 //  2) copying textures in different positions & orientations (i.e. flipped)
 //  3) updating pixels directly within textures (e.g. with SDL_TEXTUREACCESS_STREAMING)
+
+// updates pixels in texture with passed pixels array
+int update_pixels(Texture *texture, const Pixel *pixels);
+
 //
 // need load code for:
 //
