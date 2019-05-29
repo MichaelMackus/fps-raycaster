@@ -134,14 +134,50 @@ SDL_Texture* get_texture(int layer)
     return textures[layer];
 }
 
-SDL_Texture* load_texture(const char *filename)
+Texture* load_texture(const char *filename)
 {
     SDL_Surface *surface = IMG_Load(filename);
 
     if (surface == NULL)
         return NULL;
-    
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    Texture *texture;
+    texture = malloc(sizeof(*texture));
+    // TODO need free_texture call
+
+    if (texture == NULL)
+        return NULL;
+
+    texture->width = surface->w;
+    texture->height = surface->h;
+
+    // fill with RGB values
+    {
+        Uint32 *rawPixels = surface->pixels;
+        Pixel *targetPixels = malloc(sizeof(Pixel) * surface->w * surface->h);
+        if (targetPixels == NULL) return NULL;
+
+        for (int x = 0; x < surface->w; ++x)
+        {
+            for (int y = 0; y < surface->h; ++y)
+            {
+                // pitch is in bytes, so need to divide by 4 to get 32 bit pitch
+                const unsigned int offset = (surface->pitch/4)*y + x;
+
+                SDL_GetRGB(rawPixels[offset],
+                        surface->format,
+                        &(targetPixels[offset].r),
+                        &(targetPixels[offset].g),
+                        &(targetPixels[offset].b));
+            }
+        }
+
+        texture->pixels = targetPixels;
+    }
+
+    SDL_Texture *data = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_SetTextureBlendMode(data, SDL_BLENDMODE_BLEND); // TODO configure alpha somewhere
+    texture->data = data;
 
     SDL_FreeSurface(surface);
 
