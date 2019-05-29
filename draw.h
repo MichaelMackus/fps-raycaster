@@ -4,6 +4,26 @@
 #include "SDL.h"
 #include "SDL_image.h"
 
+// see: https://wiki.libsdl.org/SDL_GetKeyName
+// also: https://discourse.libsdl.org/t/convert-sdl2-scancode-to-ascii-character/23074
+typedef struct {
+    const char *key;
+} Input;
+
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} Pixel;
+
+typedef struct {
+    int width;
+    int height;
+    const Pixel *pixels;
+    void *data; // internal representation of texture (TODO perhaps use internal list for this)
+} Texture;
+
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
 
@@ -25,11 +45,23 @@ int draw_start(int layer);
 // draw to the screen
 int draw_update(int layer);
 
+
+// need draw code for:
+//
+//  1) drawing sprites/textures on the screen - particularly, slices of the textures
+//  2) copying textures in different positions & orientations (i.e. flipped)
+//  3) updating pixels directly within textures (e.g. with SDL_TEXTUREACCESS_STREAMING)
+//
+// need load code for:
+//
+//  1) getting a texture with filled rgba values from a file, irregardless of format
+Texture* load_texture(const char *filename);
+//  2) getting multiple pieces of a texture (i.e. "sprites")
+//  3) getting a pointer to the texture's pixels to modify (e.g. with SDL_TEXTUREACCESS_STREAMING)
+
+
 // get texture for layer
 SDL_Texture* get_texture(int layer);
-
-// load texture image
-SDL_Texture* load_texture(const char *filename);
 
 // draw portion of texture
 int draw_texture(SDL_Texture *texture,
