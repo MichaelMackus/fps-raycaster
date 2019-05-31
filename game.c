@@ -41,31 +41,27 @@ int screenWidth;
 int screenHeight;
 
 // our texture image
+static Texture *bgTexture;
 static SDL_Texture *texture;
-static SDL_Surface *textureSurface;
-const char* texturePixels;
-int textureWidth;
-int textureHeight;
 
 // our sprite image
+static Texture *sprites;
 static SDL_Texture *spritesTexture;
-static SDL_Surface *spritesSurface;
-/* const char* spritesPixels; */
 
 // z-index of drawn walls
 static double* wallZ;
 
-// representing sprite on screen
+// representing sprite object somewhere on screen
 typedef struct {
     int index; // index in sprite sheet
     double distX; // perpendicular X distance from player
     double distY; // perpendicular Y distance (depth) from player
     double angle; // angle from player dir
     Vector pos; // position on 2d map
-} Sprite;
+} Object;
 
 // sprites
-Sprite enemies[ENEMY_COUNT] = { 
+Object enemies[ENEMY_COUNT] = { 
     { 6*13 + 5, 0, 0, 0, { 3, 3 } },
     { 13 + 2, 0, 0, 0, { 8, 16 } },
     { 11, 0, 0, 0, { 6, 17 } },
@@ -86,75 +82,46 @@ int init_game()
     wallZ = malloc(sizeof(*wallZ) * screenWidth);
 
     // load our texture image
-    textureSurface = IMG_Load("wolftextures.png");
+    bgTexture = load_texture("wolftextures.png"); // TODO use this to draw
     
-    if (textureSurface == NULL)
+    if (bgTexture == NULL)
         return 1;
 
-    textureWidth = textureSurface->w;
-    textureHeight = textureSurface->h;
-    texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
+    struct Data {
+        SDL_Texture *sdlTexture;
+        SDL_Surface *surface;
+        SDL_Surface *converted;
+    };
+    struct Data *d = bgTexture->data;
 
-    if (texture == NULL)
-        return 1;
-
-    // texture pixel format is ARGB8888
-    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
-
-    if (tmp == NULL)
-        return 1;
-
-    SDL_FreeSurface(textureSurface);
-    textureSurface = tmp;
-    texturePixels = (const char*) textureSurface->pixels;
+    texture = d->sdlTexture;
 
     // load our spritesTexture image
-    spritesSurface = IMG_Load("enemies.png");
+    sprites = load_texture("enemies.png");
 
-    // format is ABGR8888
-    tmp = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
-
-    if (tmp == NULL)
+    if (sprites == NULL)
         return 1;
 
-    SDL_FreeSurface(spritesSurface);
-    spritesSurface = tmp;
-    char *spritesPixels = (char*) spritesSurface->pixels;
-
-    // make BG transparent
-    /* SDL_SetColorKey(spritesSurface, SDL_TRUE, */
-    /*         SDL_MapRGBA(textureSurface->format, */
-    /*             228, 225, 255, 255)); */
-                /* TODO not working: */
-                /* (int)spritesPixels[0], (int)spritesPixels[1], (int)spritesPixels[2], 255)); */
-
-    // make sprite outlines transparent
-    for (int x = 0; x < spritesSurface->w; ++x)
+    // loop to make rgb values > 125*3 transparent TODO fix sprite sheet
+    Pixel *pixels = sprites->pixels;
+    for (int x = 0; x < sprites->width; ++x)
     {
-        for (int y = 0; y < spritesSurface->h; ++y)
+        for (int y = 0; y < sprites->height; ++y)
         {
-            const unsigned int offset = spritesSurface->pitch*y + x*4;
-            char r = spritesPixels[offset + 3];
-            char g = spritesPixels[offset + 2];
-            char b = spritesPixels[offset + 1];
-            // TODO make this more sensible
-            if (r < (char) 256 && g < (char)256 && b < (char)256)
+            const unsigned int offset = sprites->width * y + x;
+            Pixel *p = &(pixels[offset]);
+            if (p->r > 125 && p->g > 125 && p->b > 125)
             {
-                spritesPixels[offset] = 0;
+                p->a = 0;
             }
         }
     }
 
-    spritesSurface->pixels = spritesPixels;
+    update_pixels(sprites);
 
-    if (spritesSurface == NULL)
-        return 1;
+    d = sprites->data;
 
-    spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
-    SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
-
-    if (spritesTexture == NULL)
-        return 1;
+    spritesTexture = d->sdlTexture;
 
     return 0;
 }
@@ -163,10 +130,11 @@ int destroy_game()
 {
     free(wallZ);
 
-    SDL_DestroyTexture(spritesTexture);
-    SDL_FreeSurface(spritesSurface);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(textureSurface);
+    // TODO
+    /* SDL_DestroyTexture(spritesTexture); */
+    /* SDL_FreeSurface(spritesSurface); */
+    /* SDL_DestroyTexture(texture); */
+    /* SDL_FreeSurface(textureSurface); */
 
     return 0;
 }
@@ -195,7 +163,7 @@ int hit_wall(Vector pos, WallSide side)
 }
 
 // sort function for sorting enemies by depth
-int sort_enemies(const Sprite *e1, const Sprite *e2)
+int sort_enemies(const Object *e1, const Object *e2)
 {
     if (e1->distY > e2->distY)
         return -1;
@@ -272,7 +240,10 @@ int tick_game()
     draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
 
     // get texture & lock for streaming
-    SDL_Texture *streamTexture = get_texture(2);
+    Texture *t = get_layer(2);
+    struct Data { SDL_Texture *sdlTexture; };
+    struct Data *d = t->data;
+    SDL_Texture *streamTexture = d->sdlTexture;
     char *pixels;
     int pitch;
     SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
@@ -486,7 +457,7 @@ int tick_game()
 
             // draw texture
             draw_texture(texture,
-                    texturePartWidth + textureX, 0, 1, textureHeight,
+                    texturePartWidth + textureX, 0, 1, bgTexture->height,
                     x, y, 1, wallHeight);
 
             // TODO add simple lighting
@@ -522,11 +493,11 @@ int tick_game()
 
                 const unsigned int offset = pitch*y + x*4;
                 const unsigned int textureOffset = 
-                    (texturePartWidth*3 + (int) floorX)*4 + (textureSurface->pitch * (int) floorY);
-                pixels[ offset + 0 ] = (char) (texturePixels[textureOffset + 1]); // b
-                pixels[ offset + 1 ] = (char) (texturePixels[textureOffset + 2]); // g
-                pixels[ offset + 2 ] = (char) (texturePixels[textureOffset + 3]); // r
-                pixels[ offset + 3 ] = SDL_ALPHA_OPAQUE;                          // a
+                    (texturePartWidth*3 + (int) floorX) + (bgTexture->width * (int) floorY);
+                pixels[ offset + 0 ] = (char) (bgTexture->pixels[textureOffset].b);
+                pixels[ offset + 1 ] = (char) (bgTexture->pixels[textureOffset].g);
+                pixels[ offset + 2 ] = (char) (bgTexture->pixels[textureOffset].r);
+                pixels[ offset + 3 ] = (char) (bgTexture->pixels[textureOffset].a);
             }
         }
     }
@@ -547,7 +518,7 @@ int tick_game()
     // setup enemy distance & angle for sorting
     for (int i = 0; i < ENEMY_COUNT; ++i)
     {
-        Sprite *enemy = &enemies[i];
+        Object *enemy = &enemies[i];
         Vector enemyPos = enemies[i].pos;
         // calculate angle to enemy using dot product
         Vector normPlayer = (Vector) { cos(player.dir), sin(player.dir) };
@@ -563,12 +534,12 @@ int tick_game()
     }
 
     // sort the enemies by distance
-    qsort(&enemies[0], ENEMY_COUNT, sizeof(Sprite), (const void*) sort_enemies);
+    qsort(&enemies[0], ENEMY_COUNT, sizeof(Object), (const void*) sort_enemies);
 
     draw_start(3); // layer 3 - sprites (renderer target)
     for (int i = 0; i < ENEMY_COUNT; ++i)
     {
-        Sprite enemy = enemies[i];
+        Object enemy = enemies[i];
         Vector enemyPos = enemy.pos;
 
         // calculate which side of screen
