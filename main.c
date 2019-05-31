@@ -95,8 +95,11 @@ int main(int argc, char **argv)
     }
 
     // game loop
-    while (tick_game())
+    while (handle_input())
     {
+        // update screen data
+        if (!update()) break;
+
         // calculate FPS
         unsigned int time = SDL_GetTicks();
         unsigned int diff = time - lastTime;
