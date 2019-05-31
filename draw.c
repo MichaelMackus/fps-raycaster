@@ -276,7 +276,7 @@ int update_colors(Color *colors, const SDL_Surface *surface)
     // assert the surface format is valid TODO add functionality for other formats
     if (surface->format->BytesPerPixel != 4)
     {
-#ifdef DEBUG
+#ifdef GAME_DEBUG
         printf("update_colors error: BytesPerPixel of surface does not equal 4!\n");
 #endif
         return 1;
