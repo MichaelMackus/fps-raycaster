@@ -223,3 +223,83 @@ int draw_gradient(int x, int y, int w, int h, int steps,
 
     return 0;
 }
+
+Color get_color(Uint32 pixel, const SDL_PixelFormat *format)
+{
+    Color c;
+    SDL_GetRGBA(pixel, format, &c.r, &c.g, &c.b, &c.a);
+
+    return c;
+}
+
+Uint32 map_color(Color color, const SDL_PixelFormat *format)
+{
+    return SDL_MapRGBA(format, color.r, color.g, color.b, color.a);
+}
+
+int get_colors(Color *colors, const SDL_Surface *surface)
+{
+    Uint8 *rawPixels = surface->pixels;
+    Color *targetColor = colors;
+
+    for (int y = 0; y < surface->h; ++y)
+    {
+        for (int x = 0; x < surface->w; ++x)
+        {
+            // Get the single pixel. We use memcpy here in order to
+            // account for non-32bit color spaces. For example, if an image
+            // doesn't have an alpha channel, color values might be 24
+            // bits, so we need to copy 3 bytes (BytesPerPixel) into the 4
+            // bytes of (p of type Uint32) on the stack.
+            //
+            // NOTE: need to test this works for non-8bit formats
+            Uint32 p;
+            memcpy(&p, rawPixels, surface->format->BytesPerPixel);
+
+            SDL_GetRGBA(p,
+                    surface->format,
+                    &(targetColor->r),
+                    &(targetColor->g),
+                    &(targetColor->b),
+                    &(targetColor->a));
+
+            rawPixels += surface->format->BytesPerPixel;
+            targetColor ++;
+        }
+    }
+
+    return 0;
+}
+
+int update_colors(Color *colors, const SDL_Surface *surface)
+{
+    // assert the surface format is valid TODO add functionality for other formats
+    if (surface->format->BytesPerPixel != 4)
+    {
+#ifdef DEBUG
+        printf("update_colors error: BytesPerPixel of surface does not equal 4!\n");
+#endif
+        return 1;
+    }
+
+    Uint32 *tmp = surface->pixels;
+
+    for (int y = 0; y < surface->h; ++y)
+    {
+        for (int x = 0; x < surface->w; ++x)
+        {
+            // it is important we do not use the format of the surface, since that could be different
+            const unsigned int pixelOffset = surface->w*y + x;
+            Uint32 p = SDL_MapRGBA(surface->format,
+                    colors[pixelOffset].r,
+                    colors[pixelOffset].g,
+                    colors[pixelOffset].b,
+                    colors[pixelOffset].a);
+
+            const unsigned int offset = (surface->pitch/4)*y + x;
+            tmp[offset] = p;
+        }
+    }
+
+    return 0;
+}
