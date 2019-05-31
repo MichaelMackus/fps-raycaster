@@ -73,6 +73,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(renderer, &info) < 0)
+    {
+        printf("Failed getting info from renderer\n");
+
+        return 1;
+    }
+
+    printf("Renderer: %s\n", info.name);
+
     // turn on alpha blending
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
