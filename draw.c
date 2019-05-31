@@ -4,20 +4,22 @@ static SDL_Window *window;
 static SDL_Renderer *renderer;
 
 // textures array initialized by layers
-static SDL_Texture **textures;
-static int textures_size = 0;
-
-// current texture being drawn to
-static SDL_Texture *texture;
+static Texture **layers;
+static int layers_size = 0;
 
 // highest texture layer initialized
 static int layer_initialized = -1;
+
+// current layer being drawn to
+static Texture *layer;
+static SDL_Texture *texture;
 
 // internal texture data struct
 typedef struct {
     SDL_Texture *sdlTexture;
     SDL_Surface *surface;
     SDL_Surface *converted;
+    Texture *parentTexture; // for sprites
 } TextureData;
 
 int draw_init(SDL_Window *win, SDL_Renderer *r)
@@ -33,12 +35,30 @@ int draw_init(SDL_Window *win, SDL_Renderer *r)
 
 int draw_free()
 {
-    for (int i = 0; i < textures_size; ++i)
+    for (int i = 0; i < layers_size; ++i)
     {
-        SDL_DestroyTexture(textures[i]);
+        Texture *l = layers[i];
+        if (l == NULL) continue;
+
+        TextureData *d = l->data;
+        if (d != NULL)
+        {
+            if (d->surface != NULL)
+                SDL_FreeSurface(d->surface);
+            if (d->converted != NULL)
+                SDL_FreeSurface(d->converted);
+            if (d->sdlTexture != NULL)
+                SDL_DestroyTexture(d->sdlTexture);
+            free(d);
+        }
+
+        if (l->pixels != NULL)
+            free(l->pixels);
+
+        free(l);
     }
 
-    if (textures != NULL) free(textures);
+    if (layers != NULL) free(layers);
 
     return 0;
 }
@@ -48,38 +68,49 @@ SDL_Renderer* get_renderer()
     return renderer;
 }
 
-int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend)
+int draw_init_layer(int index, int colorMode, int accessMode, int alphaBlend)
 {
-    if (layer >= textures_size)
+    if (index >= layers_size)
     {
-        // realloc textures
-        int new_size = layer + 1;
-        SDL_Texture **tmp = realloc(textures, sizeof(*textures) * new_size);
+        // realloc layers
+        int new_size = index + 1;
+        Texture **tmp = realloc(layers, sizeof(*layers) * new_size);
 
         if (tmp == NULL)
             return 1;
 
         // ensure newly allocated memory is initialized to NULL
-        memset(tmp + textures_size, 0, sizeof(*textures) * (new_size - textures_size));
+        memset(tmp + layers_size, 0, sizeof(*layers) * (new_size - layers_size));
 
-        textures = tmp;
-        textures_size = new_size;
+        layers = tmp;
+        layers_size = new_size;
     }
 
-    if (textures[layer] == NULL)
+    if (layers[index] == NULL)
     {
-        int w, h;
-        get_screen_dimensions(&w, &h);
+        Texture *l = malloc(sizeof(Texture));
+        layers[index] = l;
+
+        get_screen_dimensions(&(l->width), &(l->height));
 
         // initialize texture, or error
-        textures[layer] = SDL_CreateTexture(renderer,
-                colorMode, accessMode, w, h);
+        SDL_Texture *t = SDL_CreateTexture(renderer,
+                colorMode, accessMode, l->width, l->height);
 
-        if (textures[layer] == NULL)
-            return 1;
+        l->pixels = NULL;
+
+        TextureData *data = malloc(sizeof(TextureData));
+        l->data = data;
+
+        data->sdlTexture = t;
+        data->surface = NULL;
+        data->converted = NULL;
+        data->parentTexture = NULL;
     }
 
-    texture = textures[layer];
+    layer = layers[index];
+    TextureData *d = layer->data;
+    texture = d->sdlTexture;
     SDL_SetRenderTarget(renderer, texture);
 
     if (alphaBlend)
@@ -91,40 +122,40 @@ int draw_init_layer(int layer, int colorMode, int accessMode, int alphaBlend)
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
     SDL_RenderClear(renderer);
 
-    layer_initialized = layer;
+    layer_initialized = index;
 
     return 0;
 }
 
-int draw_start(int layer)
+int draw_start(int index)
 {
     // only initialize layer first time
-    if (layer_initialized < layer) draw_init_layer(layer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 1);
+    if (layer_initialized < index) draw_init_layer(index, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 1);
 
-    texture = textures[layer];
+    layer = layers[index];
+    TextureData *d = layer->data;
+    texture = d->sdlTexture;
     SDL_SetRenderTarget(renderer, texture);
 
     return 0;
 }
 
-int draw_update(int layer)
+int draw_update()
 {
     SDL_SetRenderTarget(renderer, NULL);
 
     // copy layers in order into renderer
-    if (textures_size > 0)
+    if (layers_size > 0)
     {
-        int w, h;
-        get_screen_dimensions(&w, &h);
-
-        for (int i = 0; i < textures_size; i++)
+        for (int i = 0; i < layers_size; i++)
         {
-            SDL_Texture *curLayer = textures[i];
+            Texture *curLayer = layers[i];
 
             if (curLayer == NULL)
                 continue;
 
-            SDL_RenderCopy(renderer, curLayer, NULL, NULL);
+            TextureData *d = curLayer->data;
+            SDL_RenderCopy(renderer, d->sdlTexture, NULL, NULL);
         }
     }
 
@@ -136,22 +167,28 @@ int draw_update(int layer)
     return 0;
 }
 
-SDL_Texture* get_texture(int layer)
+Texture* get_layer(int index)
 {
-    return textures[layer];
+    Texture *l = layers[index];
+
+    if (l->pixels == NULL)
+        l->pixels = malloc(sizeof(Pixel) * l->width * l->height);
+
+    return l;
 }
 
-int update_pixels(Texture *texture, const Pixel *pixels)
+int update_pixels(Texture *texture)
 {
+    Pixel *pixels = texture->pixels;
     TextureData *data = texture->data;
 
     // create temporary pixels container
     Uint32 *tmp = malloc(sizeof(*tmp) * texture->width * texture->height);
     if (tmp == NULL) return 1;
 
-    for (int x = 0; x < texture->width; ++x)
+    for (int y = 0; y < texture->height; ++y)
     {
-        for (int y = 0; y < texture->height; ++y)
+        for (int x = 0; x < texture->width; ++x)
         {
             const unsigned int offset = (data->surface->pitch/4)*y + x;
 
@@ -171,7 +208,6 @@ int update_pixels(Texture *texture, const Pixel *pixels)
         return 1;
 
     free(tmp);
-    texture->pixels = pixels;
 
     return 0;
 }
@@ -193,29 +229,6 @@ Texture* load_texture(const char *filename)
     texture->width = surface->w;
     texture->height = surface->h;
 
-    // fill with RGB values
-    {
-        Uint32 *rawPixels = surface->pixels;
-        Pixel *targetPixels = malloc(sizeof(Pixel) * surface->w * surface->h);
-        if (targetPixels == NULL) return NULL;
-
-        for (int x = 0; x < surface->w; ++x)
-        {
-            for (int y = 0; y < surface->h; ++y)
-            {
-                const unsigned int offset = (surface->pitch/4)*y + x; // pitch is in bytes (32/4=8 bits per byte)
-                SDL_GetRGBA(rawPixels[offset],
-                        surface->format,
-                        &(targetPixels[offset].r),
-                        &(targetPixels[offset].g),
-                        &(targetPixels[offset].b),
-                        &(targetPixels[offset].a));
-            }
-        }
-
-        texture->pixels = targetPixels;
-    }
-
     SDL_Texture *sdlTexture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_SetTextureBlendMode(sdlTexture, SDL_BLENDMODE_BLEND); // TODO configure alpha somewhere
 
@@ -224,6 +237,7 @@ Texture* load_texture(const char *filename)
 
     data->sdlTexture = sdlTexture;
     data->surface = surface;
+    data->parentTexture = NULL;
 
     // update texture data with format of texture
     Uint32 format;
@@ -232,12 +246,53 @@ Texture* load_texture(const char *filename)
     // store converted surface format for pixel updates
     data->converted = SDL_ConvertSurfaceFormat(surface, format, 0);
 
+    // fill with RGB values
+    {
+        Uint8 *rawPixels = surface->pixels;
+        Pixel *targetPixels = malloc(sizeof(Pixel) * surface->w * surface->h);
+        if (targetPixels == NULL) return NULL;
+        texture->pixels = targetPixels;
+
+        for (int y = 0; y < surface->h; ++y)
+        {
+            for (int x = 0; x < surface->w; ++x)
+            {
+                // Get the single pixel. We use memcpy here in order to
+                // account for non-32bit color spaces. For example, if an image
+                // doesn't have an alpha channel, color values might be 24
+                // bits, so we need to copy 3 bytes (BytesPerPixel) into the 4
+                // bytes of (p of type Uint32) on the stack.
+                //
+                // NOTE: need to test this works for non-8bit formats
+                Uint32 p;
+                memcpy(&p, rawPixels, surface->format->BytesPerPixel);
+
+                /* const unsigned int offset = (surface->pitch/4)*y + x; // pitch is in bytes (32/4=8 bits per byte) */
+                Uint8 r,g,b;
+                SDL_GetRGBA(p,
+                        surface->format,
+                        &(targetPixels->r),
+                        &(targetPixels->g),
+                        &(targetPixels->b),
+                        &(targetPixels->a));
+
+                rawPixels += surface->format->BytesPerPixel;
+                targetPixels ++;
+            }
+        }
+    }
+
+
+    printf("File: %s\n",
+            filename);
     printf("Surface: %s\n",
             SDL_GetPixelFormatName(surface->format->format));
     printf("Converted Surface: %s\n",
             SDL_GetPixelFormatName(data->converted->format->format));
     printf("Texture: %s\n",
             SDL_GetPixelFormatName(format));
+    printf("Pitch: %d Converted Pitch: %d\n",
+            data->surface->pitch, data->converted->pitch);
 
     return texture;
 }
