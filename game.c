@@ -43,7 +43,7 @@ int screenHeight;
 // our texture image
 static SDL_Texture *texture;
 static SDL_Surface *textureSurface;
-const Color* textureColors;
+const Uint32* textureColors;
 int textureWidth;
 int textureHeight;
 
@@ -97,8 +97,7 @@ int init_game()
     SDL_FreeSurface(textureSurface);
     textureSurface = tmp;
 
-    textureColors = malloc(sizeof(*textureColors) * textureSurface->h * textureSurface->w);
-    get_colors(textureColors, textureSurface);
+    textureColors = textureSurface->pixels;
     textureWidth = textureSurface->w;
     textureHeight = textureSurface->h;
     texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
@@ -262,7 +261,6 @@ int update()
         Uint32 *pixels;
         int pitch;
         SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
-        Uint32 p;
         memset(pixels, 0, pitch * screenHeight); // clear streaming target
 
         // detect which squares the player can see, and draw them proportionally to distance
@@ -517,9 +515,7 @@ int update()
                     const unsigned int textureOffset = 
                         (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY);
 
-                    // TODO too slow
-                    Color c = textureColors[textureOffset];
-                    pixels[offset] = map_color(c, textureSurface->format);
+                    pixels[offset] = textureColors[textureOffset];
                 }
             } else {
                 wallZ[x] = 99999;
