@@ -25,6 +25,15 @@ typedef struct {
     void *data; // internal representation of texture (TODO perhaps use internal list for this)
 } Texture;
 
+/* // represents slice of a texture (i.e. sprite in a sprite sheet) */ // TODO is this useful?
+/* typedef struct { */
+/*     const int width; */
+/*     const int height; */
+/*     const int textureX;     // xpos within texture */
+/*     const int textureY;     // ypos within texture */
+/*     const Texture *texture; // pointer to parent texture */
+/* } TextureSlice; */
+
 // initialize drawing
 int draw_init(SDL_Window *window, SDL_Renderer *renderer);
 
@@ -46,41 +55,21 @@ int draw_start(int index);
 // draw to the screen
 int draw_update();
 
-// need draw code for:
-//
-//  1) drawing sprites/textures on the screen - particularly, slices of the textures
-//  2) copying textures in different positions & orientations (i.e. flipped)
-//
-// need load code for:
-//
-//  2) getting multiple pieces of a texture (i.e. "sprites")
-//  3) getting a pointer to the internal texture's pixels to modify (e.g. with SDL_TEXTUREACCESS_STREAMING)
-//      *NOTE* perhaps we could use API similar to stdio? For example (pseudocode):
-//              
-//          Texture t = load_texture("asdf.png");
-//
-//          TEXTURE_STREAM s = get_handle(t);
-//          for (x = 0 ; x < w )
-//              for (y = 0; y < h )
-//                  Pixel p;
-//                  p.r = x % 255;
-//                  p.g = x % 255;
-//                  p.b = x % 255;
-//                  write_texture(s, p);
-//          close_handle(t);
-
 // updates pixels in texture
 int update_pixels(Texture *texture);
 
 // load texture from file
 Texture* load_texture(const char *filename);
 
+// divide Texture into TextureSlice
+/* TextureSlice slice_texture(const Texture *texture, int width, int height, int xpos, int ypos); */
+
 // get texture from layer for drawing
 // NOTE: the pixels of the returned texture are write only, and should be updated with update_pixels
 Texture* get_layer(int index);
 
-// draw portion of texture
-int draw_texture(SDL_Texture *texture,
+// draw portion of texture into renderer layer
+int draw_texture(Texture *texture,
         int x1, int y1, int w1, int h1,
         int x2, int y2, int w2, int h2);
 
@@ -99,5 +88,22 @@ int draw_line(int x1, int y1, int x2, int y2,
 int draw_gradient(int x, int y, int w, int h, int steps,
         Uint8 r1, Uint8 g1, Uint8 b1, Uint8 a1,
         Uint8 r2, Uint8 g2, Uint8 b2, Uint8 a2);
+
+// need code for (performance):
+//
+//  3) getting a pointer to the internal texture's pixels to modify (e.g. with SDL_TEXTUREACCESS_STREAMING)
+//      *NOTE* perhaps we could use API similar to stdio? For example (pseudocode):
+//              
+//          Texture t = load_texture("asdf.png");
+//
+//          TEXTURE_STREAM s = get_handle(t);
+//          for (x = 0 ; x < w )
+//              for (y = 0; y < h )
+//                  Pixel p;
+//                  p.r = x % 255;
+//                  p.g = x % 255;
+//                  p.b = x % 255;
+//                  write_texture(s, p);
+//          close_handle(t);
 
 #endif

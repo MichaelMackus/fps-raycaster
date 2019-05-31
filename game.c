@@ -41,12 +41,10 @@ int screenWidth;
 int screenHeight;
 
 // our texture image
-static Texture *bgTexture;
-static SDL_Texture *texture;
+static Texture *texture;
 
 // our sprite image
 static Texture *sprites;
-static SDL_Texture *spritesTexture;
 
 // z-index of drawn walls
 static double* wallZ;
@@ -82,9 +80,9 @@ int init_game()
     wallZ = malloc(sizeof(*wallZ) * screenWidth);
 
     // load our texture image
-    bgTexture = load_texture("wolftextures.png"); // TODO use this to draw
+    texture = load_texture("wolftextures.png"); // TODO use this to draw
     
-    if (bgTexture == NULL)
+    if (texture == NULL)
         return 1;
 
     struct Data {
@@ -92,9 +90,7 @@ int init_game()
         SDL_Surface *surface;
         SDL_Surface *converted;
     };
-    struct Data *d = bgTexture->data;
-
-    texture = d->sdlTexture;
+    struct Data *d;
 
     // load our spritesTexture image
     sprites = load_texture("enemies.png");
@@ -120,8 +116,6 @@ int init_game()
     update_pixels(sprites);
 
     d = sprites->data;
-
-    spritesTexture = d->sdlTexture;
 
     return 0;
 }
@@ -463,7 +457,7 @@ int tick_game()
 
             // draw texture
             draw_texture(texture,
-                    texturePartWidth + textureX, 0, 1, bgTexture->height,
+                    texturePartWidth + textureX, 0, 1, texture->height,
                     x, y, 1, wallHeight);
 
             // TODO add simple lighting
@@ -499,11 +493,11 @@ int tick_game()
 
                 const unsigned int offset = pitch*y + x*4;
                 const unsigned int textureOffset = 
-                    (texturePartWidth*3 + (int) floorX) + (bgTexture->width * (int) floorY);
-                pixels[ offset + 0 ] = (char) (bgTexture->pixels[textureOffset].b);
-                pixels[ offset + 1 ] = (char) (bgTexture->pixels[textureOffset].g);
-                pixels[ offset + 2 ] = (char) (bgTexture->pixels[textureOffset].r);
-                pixels[ offset + 3 ] = (char) (bgTexture->pixels[textureOffset].a);
+                    (texturePartWidth*3 + (int) floorX) + (texture->width * (int) floorY);
+                pixels[ offset + 0 ] = (char) (texture->pixels[textureOffset].b);
+                pixels[ offset + 1 ] = (char) (texture->pixels[textureOffset].g);
+                pixels[ offset + 2 ] = (char) (texture->pixels[textureOffset].r);
+                pixels[ offset + 3 ] = (char) (texture->pixels[textureOffset].a);
             }
         } else {
             wallZ[x] = 99999;
@@ -590,7 +584,7 @@ int tick_game()
                 if (wallZ[screenColumn] <= enemy.distY) continue;
 
                 // draw sprite
-                draw_texture(spritesTexture,
+                draw_texture(sprites,
                         textureOffsetX + x, textureOffsetY, 1, 61,
                         spriteX + x*step, spriteY, ceil(step), enemyHeight);
             }

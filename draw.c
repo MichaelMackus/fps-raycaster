@@ -299,15 +299,17 @@ Texture* load_texture(const char *filename)
     return texture;
 }
 
-int draw_texture(SDL_Texture *texture,
+int draw_texture(Texture *texture,
         int x1, int y1, int w1, int h1,
         int x2, int y2, int w2, int h2)
 {
+    TextureData *data = texture->data;
+
     SDL_Rect from = { x1, y1, w1, h1 };
     SDL_Rect to = { x2, y2, w2, h2 };
 
     return SDL_RenderCopy(renderer,
-            texture,
+            data->sdlTexture,
             &from,
             &to);
 }
