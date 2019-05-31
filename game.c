@@ -43,7 +43,7 @@ int screenHeight;
 // our texture image
 static SDL_Texture *texture;
 static SDL_Surface *textureSurface;
-const char* texturePixels;
+const Color* textureColors;
 int textureWidth;
 int textureHeight;
 
@@ -91,6 +91,14 @@ int init_game()
     if (textureSurface == NULL)
         return 1;
 
+    // ensure format is RGBA with 32-bits for color manipulation
+    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_ARGB8888, 0);
+    if (tmp == NULL) return 1;
+    SDL_FreeSurface(textureSurface);
+    textureSurface = tmp;
+
+    textureColors = malloc(sizeof(*textureColors) * textureSurface->h * textureSurface->w);
+    get_colors(textureColors, textureSurface);
     textureWidth = textureSurface->w;
     textureHeight = textureSurface->h;
     texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
@@ -98,54 +106,24 @@ int init_game()
     if (texture == NULL)
         return 1;
 
-    // texture pixel format is ARGB8888
-    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_RGBA8888, 0);
-
-    if (tmp == NULL)
-        return 1;
-
-    SDL_FreeSurface(textureSurface);
-    textureSurface = tmp;
-    texturePixels = (const char*) textureSurface->pixels;
-
     // load our spritesTexture image
     spritesSurface = IMG_Load("enemies.png");
 
-    // format is ABGR8888
-    tmp = SDL_ConvertSurfaceFormat(spritesSurface, SDL_PIXELFORMAT_RGBA8888, 0);
-
-    if (tmp == NULL)
-        return 1;
-
-    SDL_FreeSurface(spritesSurface);
-    spritesSurface = tmp;
-    char *spritesPixels = (char*) spritesSurface->pixels;
-
-    // make BG transparent
-    /* SDL_SetColorKey(spritesSurface, SDL_TRUE, */
-    /*         SDL_MapRGBA(textureSurface->format, */
-    /*             228, 225, 255, 255)); */
-                /* TODO not working: */
-                /* (int)spritesPixels[0], (int)spritesPixels[1], (int)spritesPixels[2], 255)); */
-
     // make sprite outlines transparent
+    Color colors[spritesSurface->w * spritesSurface->h];
+    get_colors(colors, spritesSurface);
     for (int x = 0; x < spritesSurface->w; ++x)
     {
         for (int y = 0; y < spritesSurface->h; ++y)
         {
-            const unsigned int offset = spritesSurface->pitch*y + x*4;
-            char r = spritesPixels[offset + 3];
-            char g = spritesPixels[offset + 2];
-            char b = spritesPixels[offset + 1];
-            // TODO make this more sensible
-            if (r < (char) 256 && g < (char)256 && b < (char)256)
+            Color *c = &colors[x + y*spritesSurface->w];
+            if (c->r > 125 && c->g > 125 && c->b > 125)
             {
-                spritesPixels[offset] = 0;
+                c->a = 0;
             }
         }
     }
-
-    spritesSurface->pixels = spritesPixels;
+    update_colors(colors, spritesSurface);
 
     if (spritesSurface == NULL)
         return 1;
@@ -281,10 +259,11 @@ int update()
         // detect which squares the player can see, and draw them proportionally to distance
         // get texture & lock for streaming
         SDL_Texture *streamTexture = get_texture(2);
-        char *pixels;
+        Uint32 *pixels;
         int pitch;
         SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
-        memset(pixels, 0, pitch*screenHeight); // clear streaming target
+        Uint32 p;
+        memset(pixels, 0, pitch * screenHeight); // clear streaming target
 
         // detect which squares the player can see, and draw them proportionally to distance
         for (int x = 0; x < screenWidth; ++x)
@@ -534,13 +513,13 @@ int update()
                     double floorY = (floorPos.y - floor(floorPos.y)) * texturePartHeight;
                     double floorX = (floorPos.x - floor(floorPos.x)) * texturePartWidth;
 
-                    const unsigned int offset = pitch*y + x*4;
+                    const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
                     const unsigned int textureOffset = 
-                        (texturePartWidth*3 + (int) floorX)*4 + (textureSurface->pitch * (int) floorY);
-                    pixels[ offset + 0 ] = (char) (texturePixels[textureOffset + 1]); // b
-                    pixels[ offset + 1 ] = (char) (texturePixels[textureOffset + 2]); // g
-                    pixels[ offset + 2 ] = (char) (texturePixels[textureOffset + 3]); // r
-                    pixels[ offset + 3 ] = SDL_ALPHA_OPAQUE;                          // a
+                        (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY);
+
+                    // TODO too slow
+                    Color c = textureColors[textureOffset];
+                    pixels[offset] = map_color(c, textureSurface->format);
                 }
             } else {
                 wallZ[x] = 99999;
