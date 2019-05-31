@@ -339,9 +339,15 @@ int tick_game()
 
         // increment ray pos until we hit wall, *or* go past map bounds
         int hit = 0;
+        int i = 0;
         WallSide side; // 0 for x-intercept, 1 for y-intercept
-        while (hit == 0) // TODO bounds checking
+        while (hit == 0)
         {
+            // hack for bounds check TODO fix this
+            if (++i > 10000) {
+                printf("Raycast error, angle: %f, rayDir: %f\n", player.dir, rayDir);
+                break;
+            }
             // check for x-intercept
             if (tileStepY == 1)
             {
@@ -499,6 +505,8 @@ int tick_game()
                 pixels[ offset + 2 ] = (char) (bgTexture->pixels[textureOffset].r);
                 pixels[ offset + 3 ] = (char) (bgTexture->pixels[textureOffset].a);
             }
+        } else {
+            wallZ[x] = 99999;
         }
     }
 
