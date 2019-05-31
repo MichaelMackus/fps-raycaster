@@ -190,21 +190,23 @@ int update_pixels(Texture *texture)
     {
         for (int x = 0; x < texture->width; ++x)
         {
-            const unsigned int offset = (data->surface->pitch/4)*y + x;
-
             // it is important we do not use the format of the surface, since that could be different
-            tmp[offset] = SDL_MapRGBA(data->converted->format,
-                    pixels[offset].r,
-                    pixels[offset].g,
-                    pixels[offset].b,
-                    pixels[offset].a);
+            const unsigned int pixelOffset = texture->width*y + x;
+            Uint32 p = SDL_MapRGBA(data->converted->format,
+                    pixels[pixelOffset].r,
+                    pixels[pixelOffset].g,
+                    pixels[pixelOffset].b,
+                    pixels[pixelOffset].a);
+
+            const unsigned int offset = (data->converted->pitch/4)*y + x;
+            tmp[offset] = p;
         }
     }
 
     if (SDL_UpdateTexture(data->sdlTexture,
             NULL,
             tmp,
-            data->surface->pitch) != 0)
+            data->converted->pitch) != 0)
         return 1;
 
     free(tmp);
