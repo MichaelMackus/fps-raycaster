@@ -1,5 +1,7 @@
 #include "draw.h"
+#include "input.h"
 #include "game.h"
+#include "raycast.h"
 
 #include "SDL.h"
 #include "SDL_image.h"
@@ -87,7 +89,7 @@ int main(int argc, char **argv)
     unsigned int lastTime;
     lastTime = SDL_GetTicks();
 
-    if (init_game() == 1)
+    if (init_game() == 1 || init_raycast() == 1)
     {
         printf("Error initializing game.\n");
 
@@ -98,7 +100,7 @@ int main(int argc, char **argv)
     while (handle_input())
     {
         // update screen data
-        if (!update()) break;
+        if (!raycast()) break;
 
         // calculate FPS
         unsigned int time = SDL_GetTicks();
@@ -115,7 +117,8 @@ int main(int argc, char **argv)
         {
             // update window title with FPS
             char title[100];
-            sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, get_player().pos.x, get_player().pos.y, to_degrees(get_player().dir));
+            Player *player = get_player();
+            sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, player->pos.x, player->pos.y, to_degrees(player->dir));
             SDL_SetWindowTitle(win, title);
         }
 
@@ -123,7 +126,7 @@ int main(int argc, char **argv)
         lastTime = time;
     }
 
-    destroy_game();
+    destroy_raycast();
     draw_free();
 
     IMG_Quit();
