@@ -10,7 +10,7 @@ Player* get_player()
     return &player;
 }
 
-static char map[MAP_HEIGHT*MAP_WIDTH] = "####################.................##.................##........#........##.................##.................##.................##......#####......##......#...#......##......#.@.#......##......#...#......##......##.##......##.................##.......#.#.......##.................##.................##.................##.................####################";
+static char map[MAP_HEIGHT*MAP_WIDTH];
 const char* get_map()
 {
     return map;
@@ -39,6 +39,22 @@ int init_game()
     player.pos.y = 9.5;
     player.dir = to_radians(90);
     player.fov = to_radians(90);
+
+    // read map from file
+    FILE *f = fopen("map.txt", "r");
+    if (f == NULL) return 1;
+    char *tmp = map; // current map buffer
+    for (int y = 0; y < MAP_HEIGHT; ++y)
+    {
+        // read MAP_WIDTH characters into map buffer
+        if (fread(tmp, sizeof(*tmp), MAP_WIDTH, f) == 0) {
+            return 1;
+        }
+        // skip newline
+        fseek(f, 1, SEEK_CUR);
+        // advance map buffer MAP_WIDTH characters
+        tmp += MAP_WIDTH;
+    }
 
     return 0;
 }
