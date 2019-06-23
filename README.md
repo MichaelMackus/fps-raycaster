@@ -1,6 +1,6 @@
-# Raycasting Demo
+# Raycasting Engine
 
-Simple demo using raycasting technique to resemble a pseudo-3d environment.
+Simple game engine using raycasting technique to resemble a pseudo-3d environment.
 
 # Dependencies
 
