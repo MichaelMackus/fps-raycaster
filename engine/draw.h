@@ -1,5 +1,5 @@
-#ifndef DRAW_H
-#define DRAW_H
+#ifndef ENGINE_DRAW_H
+#define ENGINE_DRAW_H
 
 #include "SDL.h"
 #include "SDL_image.h"

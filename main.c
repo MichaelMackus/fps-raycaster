@@ -1,7 +1,8 @@
-#include "draw.h"
-#include "input.h"
+#include "engine/draw.h"
+#include "engine/raycast.h"
+#include "engine/entity.h"
 #include "game.h"
-#include "raycast.h"
+#include "input.h"
 
 #include "SDL.h"
 #include "SDL_image.h"

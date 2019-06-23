@@ -1,6 +1,8 @@
 #include "draw.h"
-#include "game.h"
 #include "raycast.h"
+#include "entity.h"
+#include "map.h"
+#include "stdinc.h"
 
 #include "SDL.h"
 

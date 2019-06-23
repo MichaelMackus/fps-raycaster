@@ -1,5 +1,4 @@
-#include "engine/entity.h"
-#include "engine/map.h"
+#include "game.h"
 #include "input.h"
 
 #include "SDL.h"
@@ -7,8 +6,6 @@
 int handle_input()
 {
     int playing = 1;
-
-    Player *player = get_player();
 
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -33,6 +30,7 @@ int handle_input()
     // TODO use this to get mouse pos:
     /* SDL_GetRelativeMouseState(&relx, &rely); */
 
+    Player *player = get_player();
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
     if(keystates[SDL_SCANCODE_W])
     {
