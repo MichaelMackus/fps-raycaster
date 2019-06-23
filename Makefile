@@ -1,5 +1,5 @@
 PROGRAM = raycast
-OBJS = main.o draw.o game.o
+OBJS = main.o draw.o game.o input.o raycast.o
 # CCDEFINES = -DGAME_DEBUG
 # CCFLAGS = -fsanitize=address -O2 -Wall -I/usr/include/SDL2 $(CCDEFINES)
 CCFLAGS = -O2 -Wall -I/usr/include/SDL2 $(CCDEFINES)
