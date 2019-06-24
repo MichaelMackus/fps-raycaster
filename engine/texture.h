@@ -10,7 +10,7 @@ typedef struct {
     int xOffset;
     int yOffset;
     SDL_Texture *atlas;
-} Texture;
+} SubTexture;
 
 // TODO texture loading
 

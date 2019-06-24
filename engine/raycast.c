@@ -369,7 +369,7 @@ int raycast(const Map *map)
                     return 0;
                 }
 
-                const Texture texture = t->texture;
+                const SubTexture texture = t->texture;
 
                 // offset from within texture (we're only rendering 1 slice of the wall)
                 int textureX = wallX * texture.width;
