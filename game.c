@@ -6,9 +6,6 @@
 #include <stdio.h>
 
 TextureAtlas *textureAtlas;
-SubTexture *textureWall;
-SubTexture *textureBanner;
-SubTexture *textureFloor;
 
 int init_game()
 {
@@ -25,19 +22,7 @@ int init_game()
         if (textureAtlas == NULL)
             return 1;
 
-        textureWall = create_subtexture(textureAtlas,
-                64, 64, 64*1, 0);
-        if (textureWall == NULL)
-            return 1;
-
-        textureBanner = create_subtexture(textureAtlas,
-                64, 64, 64*0, 0);
-        if (textureBanner == NULL)
-            return 1;
-
-        textureFloor = create_subtexture(textureAtlas,
-                64, 64, 64*3, 0);
-        if (textureFloor == NULL)
+        if (populate_atlas(textureAtlas, 64, 64) == 0)
             return 1;
     }
 
@@ -80,19 +65,19 @@ Map* load_map(const char *fileName)
                 // wall tile
                 case '#':
                     curTile->type = TILE_SOLID;
-                    curTile->texture = textureWall;
+                    curTile->texture = textureAtlas->subtextures[1];
                     break;
 
                 // flag tile
                 case '&':
                     curTile->type = TILE_SOLID;
-                    curTile->texture = textureBanner;
+                    curTile->texture = textureAtlas->subtextures[0];
                     break;
 
                 // floor tile
                 default:
                     curTile->type = TILE_PASSABLE;
-                    curTile->texture = textureFloor;
+                    curTile->texture = textureAtlas->subtextures[3];
             }
 
             curTile ++;

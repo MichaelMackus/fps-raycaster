@@ -67,6 +67,8 @@ TextureAtlas* create_atlas(const char *fileName)
         atlas->height = surface->h;
         atlas->pixels = colors;
         atlas->texture = texture;
+        atlas->subtextures = NULL;
+        atlas->subtextureAmount = 0;
     }
 
     // don't need anymore
@@ -75,6 +77,25 @@ TextureAtlas* create_atlas(const char *fileName)
     return atlas;
 }
 void free_atlas(TextureAtlas *atlas);
+
+int insert_subtexture(TextureAtlas *atlas, SubTexture *subtexture)
+{
+    SubTexture **tmp = realloc(atlas->subtextures, sizeof(*tmp) * ++atlas->subtextureAmount);
+
+    if (tmp == NULL)
+    {
+#ifdef GAME_DEBUG
+        printf("Error reallocating subtextures!\n");
+#endif
+
+        return -1;
+    }
+
+    atlas->subtextures = tmp;
+    atlas->subtextures[atlas->subtextureAmount - 1] = subtexture;
+
+    return atlas->subtextureAmount - 1;
+}
 
 SubTexture* create_subtexture(TextureAtlas *atlas, int width, int height, int xOffset, int yOffset)
 {
@@ -108,4 +129,44 @@ SubTexture* create_subtexture(TextureAtlas *atlas, int width, int height, int xO
 
     return texture;
 }
+
+int populate_atlas(TextureAtlas *atlas, int subtextureWidth, int subtextureHeight)
+{
+    // simple bounds check
+    if (subtextureWidth > atlas->width || subtextureHeight > atlas->height)
+    {
+#ifdef GAME_DEBUG
+        printf("Error populating atlas - subtexture size outside atlas bounds!\n");
+#endif
+
+        return 0;
+    }
+
+    // free the subtextures array if exists
+    if (atlas->subtextureAmount > 0)
+        atlas->subtextureAmount = 0;
+    if (atlas->subtextures != NULL)
+    {
+        free(atlas->subtextures);
+        atlas->subtextures = NULL;
+    }
+
+    int cols = atlas->width / subtextureWidth;
+    int rows = atlas->height / subtextureHeight;
+    
+    for (int x = 0; x < cols; ++x)
+    {
+        for (int y = 0; y < rows; ++y)
+        {
+            int xOffset = x * subtextureWidth;
+            int yOffset = y * subtextureHeight;
+            SubTexture *subtexture = create_subtexture(atlas,
+                    subtextureWidth, subtextureHeight, xOffset, yOffset);
+            insert_subtexture(atlas, subtexture);
+        }
+    }
+
+    return atlas->subtextureAmount;
+}
+
 void free_subtexture(SubTexture *texture);
