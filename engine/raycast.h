@@ -1,6 +1,8 @@
 #ifndef ENGINE_RAYCAST_H
 #define ENGINE_RAYCAST_H
 
+#include "map.h"
+
 // initialize raycast renderer
 int init_raycast();
 
@@ -8,6 +10,6 @@ int init_raycast();
 int destroy_raycast();
 
 // do the raycast & draw to the screen
-int raycast();
+int raycast(const Map* map);
 
 #endif

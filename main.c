@@ -97,11 +97,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // load our game map
+    Map *map = load_map("map.txt");
+
     // game loop
-    while (handle_input())
+    while (handle_input(map))
     {
         // update screen data
-        if (!raycast()) break;
+        if (!raycast(map)) break;
 
         // calculate FPS
         unsigned int time = SDL_GetTicks();

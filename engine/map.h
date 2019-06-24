@@ -1,14 +1,36 @@
 #ifndef ENGINE_MAP_H
 #define ENGINE_MAP_H
 
+#include "texture.h"
 #include "stdinc.h"
 
-// TODO get these from engine
-#define MAP_WIDTH 19
-#define MAP_HEIGHT 19
-#define MAP_MAX_DISTANCE MAP_WIDTH*MAP_WIDTH + MAP_HEIGHT*MAP_HEIGHT
+typedef enum {
+    TILE_PASSABLE,
+    TILE_SOLID
+} TileType;
 
-const char* get_map();
-const char get_tile(int x, int y);
+typedef struct {
+    Texture texture;
+    TileType type;
+} Tile;
+
+typedef struct {
+    int width;
+    int height;
+    Tile *tiles;
+    /* TODO Sprite *objects; */
+} Map;
+
+// allocate memory for map & tiles
+Map* create_map(int width, int height);
+
+// free memory
+void free_map(Map *map);
+
+// return NULL if outside bounds
+const Tile* get_tile(const Map *map, int x, int y);
+
+// return 1 if tile at location is passable
+int is_passable(const Map *map, int x, int y);
 
 #endif

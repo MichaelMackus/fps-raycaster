@@ -102,7 +102,7 @@ typedef enum {
 } WallSide;
 
 // whether vector hits wall side
-int hit_wall(Vector pos, WallSide side)
+int hit_wall(Map *map, Vector pos, WallSide side)
 {
     if (side == WALL_SOUTH)
     {
@@ -114,7 +114,7 @@ int hit_wall(Vector pos, WallSide side)
         pos.x -= 1;
     }
 
-    return get_tile(pos.x, pos.y) == '#';
+    return is_passable(map, pos.x, pos.y) == 0;
 }
 
 // sort function for sorting enemies by depth
@@ -128,7 +128,7 @@ int sort_enemies(const Sprite *e1, const Sprite *e2)
         return 1;
 }
 
-int raycast()
+int raycast(const Map *map)
 {
     Player *player = get_player();
 
@@ -253,7 +253,7 @@ int raycast()
                 {
                     while (xIntercept.y <= yIntercept.y && hit == 0)
                     {
-                        if (hit_wall(xIntercept, WALL_NORTH))
+                        if (hit_wall(map, xIntercept, WALL_NORTH))
                         {
                             hit = 1;
                             side = WALL_NORTH;
@@ -267,7 +267,7 @@ int raycast()
                 {
                     while (xIntercept.y >= yIntercept.y && hit == 0)
                     {
-                        if (hit_wall(xIntercept, WALL_SOUTH))
+                        if (hit_wall(map, xIntercept, WALL_SOUTH))
                         {
                             hit = 1;
                             side = WALL_SOUTH;
@@ -283,7 +283,7 @@ int raycast()
                 {
                     while (yIntercept.x <= xIntercept.x && hit == 0)
                     {
-                        if (hit_wall(yIntercept, WALL_WEST))
+                        if (hit_wall(map, yIntercept, WALL_WEST))
                         {
                             hit = 1;
                             side = WALL_WEST;
@@ -297,7 +297,7 @@ int raycast()
                 {
                     while (yIntercept.x >= xIntercept.x && hit == 0)
                     {
-                        if (hit_wall(yIntercept, WALL_EAST))
+                        if (hit_wall(map, yIntercept, WALL_EAST))
                         {
                             hit = 1;
                             side = WALL_EAST;

@@ -4,7 +4,7 @@
 
 #include "SDL.h"
 
-int handle_input()
+int handle_input(Map *map)
 {
     int playing = 1;
 
@@ -39,7 +39,8 @@ int handle_input()
         // walk forward in unit circle (unit circle x = cos, y = sin)
         player->pos.x += cos(player->dir) / 10;
         player->pos.y += sin(player->dir) / 10;
-        if (get_tile(player->pos.x, player->pos.y) == '#') {
+        if (!is_passable(map, player->pos.x, player->pos.y))
+        {
             player->pos.x -= cos(player->dir) / 10;
             player->pos.y -= sin(player->dir) / 10;
         }
@@ -49,7 +50,8 @@ int handle_input()
         // walk backward in unit circle (unit circle x = cos, y = sin)
         player->pos.x -= cos(player->dir) / 10;
         player->pos.y -= sin(player->dir) / 10;
-        if (get_tile(player->pos.x, player->pos.y) == '#') {
+        if (!is_passable(map, player->pos.x, player->pos.y))
+        {
             player->pos.x += cos(player->dir) / 10;
             player->pos.y += sin(player->dir) / 10;
         }
