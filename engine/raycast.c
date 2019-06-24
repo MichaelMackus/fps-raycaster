@@ -10,7 +10,7 @@ int screenWidth;
 int screenHeight;
 
 // our texture image
-static SDL_Texture *texture;
+/* static SDL_Texture *texture; */
 static SDL_Surface *textureSurface;
 const Uint32* textureColors;
 int textureWidth;
@@ -46,10 +46,10 @@ int init_raycast()
     textureColors = textureSurface->pixels;
     textureWidth = textureSurface->w;
     textureHeight = textureSurface->h;
-    texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
+    /* texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface); */
 
-    if (texture == NULL)
-        return 1;
+    /* if (texture == NULL) */
+    /*     return 1; */
 
     // load our spritesTexture image
     spritesSurface = IMG_Load("enemies.png");
@@ -88,7 +88,7 @@ int destroy_raycast()
 
     SDL_DestroyTexture(spritesTexture);
     SDL_FreeSurface(spritesSurface);
-    SDL_DestroyTexture(texture);
+    /* SDL_DestroyTexture(texture); */
     SDL_FreeSurface(textureSurface);
 
     return 0;
@@ -353,17 +353,33 @@ int raycast(const Map *map)
                 if (side == WALL_NORTH || side == WALL_SOUTH) wallX = rayPos.x - floor(rayPos.x);
                 else wallX = rayPos.y - floor(rayPos.y);
 
-                int texturePartWidth = 64; // width of a single texture within texture file
-                int textureX = wallX * texturePartWidth;
-                if ((int) rayPos.y % 8 == 0 || (int) rayPos.x % 8 == 0)
-                    textureX -= texturePartWidth; // Cameron suggested I add this texture
+                // get the texture from the map tile
+                Vector tilePos = rayPos; // TODO remove this & simplify rayPos
+                if (side == WALL_SOUTH)
+                    tilePos.y -= 1;
+                if (side == WALL_EAST)
+                    tilePos.x -= 1;
+                const Tile* t = get_tile(map, tilePos.x, tilePos.y);
+
+                if (t == NULL)
+                {
+#ifdef GAME_DEBUG
+                    printf("Error - tile is null\n");
+#endif
+                    return 0;
+                }
+
+                const Texture texture = t->texture;
+
+                // offset from within texture (we're only rendering 1 slice of the wall)
+                int textureX = wallX * texture.width;
 
                 // draw walls on layer 1
                 draw_start(1);
 
                 // draw texture
-                draw_texture(texture,
-                        texturePartWidth + textureX, 0, 1, textureHeight,
+                draw_texture(texture.atlas,
+                        texture.xOffset + textureX, texture.yOffset, 1, texture.height,
                         x, y, 1, wallHeight);
 
                 // TODO add simple lighting
@@ -376,9 +392,10 @@ int raycast(const Map *map)
                 /* Vector normalRay = normalize((Vector) { rayPos.x - player->pos.x, rayPos.y - player->pos.y }); */
                 Vector floorPos = rayPos;
 
-                // draw floors below wall
+                // draw floors below wall TODO abstract using engine
                 int yStart = y + wallHeight;
                 int texturePartHeight = 64; // height of a single texture within texture file
+                int texturePartWidth = 64; // width of a single texture within texture file
                 for (y = yStart; y < screenHeight; ++y)
                 {
                     // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
