@@ -5,7 +5,10 @@
 
 #include <stdio.h>
 
-SDL_Texture *textureAtlas;
+TextureAtlas *textureAtlas;
+SubTexture *textureWall;
+SubTexture *textureBanner;
+SubTexture *textureFloor;
 
 int init_game()
 {
@@ -17,21 +20,24 @@ int init_game()
 
     // load textures
     {
-        // load our texture image
-        SDL_Surface *textureSurface = IMG_Load("wolftextures.png");
-        
-        if (textureSurface == NULL)
-            return 1;
-
-        // ensure format is RGBA with 32-bits for color manipulation
-        SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_ARGB8888, 0);
-        if (tmp == NULL) return 1;
-        SDL_FreeSurface(textureSurface);
-        textureSurface = tmp;
-
-        textureAtlas = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
+        textureAtlas = create_atlas("wolftextures.png");
 
         if (textureAtlas == NULL)
+            return 1;
+
+        textureWall = create_subtexture(textureAtlas,
+                64, 64, 64*1, 0);
+        if (textureWall == NULL)
+            return 1;
+
+        textureBanner = create_subtexture(textureAtlas,
+                64, 64, 64*0, 0);
+        if (textureBanner == NULL)
+            return 1;
+
+        textureFloor = create_subtexture(textureAtlas,
+                64, 64, 64*3, 0);
+        if (textureFloor == NULL)
             return 1;
     }
 
@@ -70,34 +76,23 @@ Map* load_map(const char *fileName)
             // don't append to map if newline
             if (line[i] == '\n') continue;
 
-            curTile->texture.atlas = textureAtlas;
-
             switch (line[i]) {
                 // wall tile
                 case '#':
                     curTile->type = TILE_SOLID;
-                    curTile->texture.width = 64;
-                    curTile->texture.height = 64;
-                    curTile->texture.xOffset = 64;
-                    curTile->texture.yOffset = 0;
+                    curTile->texture = textureWall;
                     break;
 
                 // flag tile
                 case '&':
                     curTile->type = TILE_SOLID;
-                    curTile->texture.width = 64;
-                    curTile->texture.height = 64;
-                    curTile->texture.xOffset = 0;
-                    curTile->texture.yOffset = 0;
+                    curTile->texture = textureBanner;
                     break;
 
                 // floor tile
                 default:
                     curTile->type = TILE_PASSABLE;
-                    curTile->texture.width = 64;
-                    curTile->texture.height = 64;
-                    curTile->texture.xOffset = 64*3;
-                    curTile->texture.yOffset = 0;
+                    curTile->texture = textureFloor;
             }
 
             curTile ++;

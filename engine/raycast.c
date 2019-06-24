@@ -102,7 +102,7 @@ typedef enum {
 } WallSide;
 
 // whether vector hits wall side
-int hit_wall(Map *map, Vector pos, WallSide side)
+int hit_wall(const Map *map, Vector pos, WallSide side)
 {
     if (side == WALL_SOUTH)
     {
@@ -359,7 +359,7 @@ int raycast(const Map *map)
                     tilePos.y -= 1;
                 if (side == WALL_EAST)
                     tilePos.x -= 1;
-                const Tile* t = get_tile(map, tilePos.x, tilePos.y);
+                const Tile *t = get_tile(map, tilePos.x, tilePos.y);
 
                 if (t == NULL)
                 {
@@ -369,17 +369,17 @@ int raycast(const Map *map)
                     return 0;
                 }
 
-                const SubTexture texture = t->texture;
+                const SubTexture *texture = t->texture;
 
                 // offset from within texture (we're only rendering 1 slice of the wall)
-                int textureX = wallX * texture.width;
+                int textureX = wallX * texture->width;
 
                 // draw walls on layer 1
                 draw_start(1);
 
                 // draw texture
-                draw_texture(texture.atlas,
-                        texture.xOffset + textureX, texture.yOffset, 1, texture.height,
+                draw_texture(texture->atlas->texture,
+                        texture->xOffset + textureX, texture->yOffset, 1, texture->height,
                         x, y, 1, wallHeight);
 
                 // TODO add simple lighting

@@ -1,6 +1,6 @@
 PROGRAM = raycast
 OBJS = main.o game.o input.o
-ENGINE = engine/draw.o engine/raycast.o engine/entity.o engine/map.o
+ENGINE = engine/draw.o engine/raycast.o engine/entity.o engine/map.o engine/texture.o
 # CCDEFINES = -DGAME_DEBUG
 # CCFLAGS = -fsanitize=address -O2 -Wall -I/usr/include/SDL2 $(CCDEFINES)
 CCFLAGS = -O2 -Wall -I/usr/include/SDL2 $(CCDEFINES)

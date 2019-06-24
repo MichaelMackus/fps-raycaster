@@ -10,7 +10,7 @@ typedef enum {
 } TileType;
 
 typedef struct {
-    SubTexture texture;
+    SubTexture *texture;
     TileType type;
 } Tile;
 
