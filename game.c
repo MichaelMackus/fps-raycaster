@@ -82,6 +82,15 @@ Map* load_map(const char *fileName)
                     curTile->texture.yOffset = 0;
                     break;
 
+                // flag tile
+                case '&':
+                    curTile->type = TILE_SOLID;
+                    curTile->texture.width = 64;
+                    curTile->texture.height = 64;
+                    curTile->texture.xOffset = 0;
+                    curTile->texture.yOffset = 0;
+                    break;
+
                 // floor tile
                 default:
                     curTile->type = TILE_PASSABLE;
