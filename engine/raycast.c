@@ -9,13 +9,6 @@
 int screenWidth;
 int screenHeight;
 
-// our texture image
-/* static SDL_Texture *texture; */
-static SDL_Surface *textureSurface;
-const Uint32* textureColors;
-int textureWidth;
-int textureHeight;
-
 // our sprite image
 static SDL_Texture *spritesTexture;
 static SDL_Surface *spritesSurface;
@@ -30,26 +23,6 @@ int init_raycast()
 
     // initialize wallZ array
     wallZ = malloc(sizeof(*wallZ) * screenWidth);
-
-    // load our texture image
-    textureSurface = IMG_Load("wolftextures.png");
-    
-    if (textureSurface == NULL)
-        return 1;
-
-    // ensure format is RGBA with 32-bits for color manipulation
-    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_ARGB8888, 0);
-    if (tmp == NULL) return 1;
-    SDL_FreeSurface(textureSurface);
-    textureSurface = tmp;
-
-    textureColors = textureSurface->pixels;
-    textureWidth = textureSurface->w;
-    textureHeight = textureSurface->h;
-    /* texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface); */
-
-    /* if (texture == NULL) */
-    /*     return 1; */
 
     // load our spritesTexture image
     spritesSurface = IMG_Load("enemies.png");
@@ -88,8 +61,6 @@ int destroy_raycast()
 
     SDL_DestroyTexture(spritesTexture);
     SDL_FreeSurface(spritesSurface);
-    /* SDL_DestroyTexture(texture); */
-    SDL_FreeSurface(textureSurface);
 
     return 0;
 }
@@ -364,7 +335,7 @@ int raycast(const Map *map)
                 if (t == NULL)
                 {
 #ifdef GAME_DEBUG
-                    printf("Error - tile is null\n");
+                    printf("Error - wall tile is null\n");
 #endif
                     return 0;
                 }
@@ -394,8 +365,6 @@ int raycast(const Map *map)
 
                 // draw floors below wall TODO abstract using engine
                 int yStart = y + wallHeight;
-                int texturePartHeight = 64; // height of a single texture within texture file
-                int texturePartWidth = 64; // width of a single texture within texture file
                 for (y = yStart; y < screenHeight; ++y)
                 {
                     // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
@@ -411,14 +380,43 @@ int raycast(const Map *map)
                     floorPos.x = (1 - t) * player->pos.x + t * rayPos.x;
                     floorPos.y = (1 - t) * player->pos.y + t * rayPos.y;
 
-                    double floorY = (floorPos.y - floor(floorPos.y)) * texturePartHeight;
-                    double floorX = (floorPos.x - floor(floorPos.x)) * texturePartWidth;
+                    // get the floor tile
+                    Vector tilePos = floorPos; // TODO remove this & simplify rayPos
+                    if (side == WALL_SOUTH)
+                        floorPos.y -= 1;
+                    if (side == WALL_EAST)
+                        floorPos.x -= 1;
+                    const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
 
+                    if (tile == NULL)
+                    {
+#ifdef GAME_DEBUG
+                        printf("Error - floor tile is null\n");
+#endif
+                        return 0;
+                    }
+
+                    // get colors from tile's subtexture
+                    Color *colors = tile->texture->pixels;
+
+                    double floorY = (floorPos.y - floor(floorPos.y)) * tile->texture->height;
+                    double floorX = (floorPos.x - floor(floorPos.x)) * tile->texture->width;
+
+                    // hardcoded version from before - a bit better performance
+                    /* const unsigned int offset = (pitch/sizeof(Uint32))*y + x; */
+                    /* const unsigned int textureOffset = */ 
+                    /*     (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY); */
+                    /* pixels[offset] = textureColors[textureOffset]; */
+
+                    // TODO performance
+                    // TODO will this work with all source pixel formats?
                     const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
                     const unsigned int textureOffset = 
-                        (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY);
-
-                    pixels[offset] = textureColors[textureOffset];
+                        ((int) floorX) + (tile->texture->atlas->width * (int) floorY);
+                    pixels[offset] = (0xFF << 24) |
+                        (colors[textureOffset].r << 16) |
+                        (colors[textureOffset].g << 8) |
+                        (colors[textureOffset].b);
                 }
             } else {
                 wallZ[x] = 99999;
