@@ -3,6 +3,7 @@
 
 #define MAP_WIDTH 19
 #define MAP_HEIGHT 19
+#define ENEMY_COUNT 5
 
 #include "engine/map.h"
 

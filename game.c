@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 TextureAtlas *textureAtlas;
+TextureAtlas *spritesAtlas;
 
 int init_game()
 {
@@ -23,6 +24,42 @@ int init_game()
             return 1;
 
         if (populate_atlas(textureAtlas, 64, 64) == 0)
+            return 1;
+    }
+
+    // load sprites
+    {
+        spritesAtlas = create_atlas("enemies.png");
+
+        if (spritesAtlas == NULL)
+            return 1;
+
+        // make sprite outlines transparent
+        for (int x = 0; x < spritesAtlas->width; ++x)
+        {
+            for (int y = 0; y < spritesAtlas->height; ++y)
+            {
+                Color *c = &spritesAtlas->pixels[x + y*spritesAtlas->surface->w];
+                if (c->r > 125 && c->g > 125 && c->b > 125)
+                {
+                    c->a = 0;
+                }
+            }
+        }
+
+        if (update_colors(spritesAtlas->pixels, spritesAtlas->surface) != 0)
+            return 1;
+
+        SDL_Texture *spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesAtlas->surface);
+        SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
+
+        if (spritesTexture == NULL)
+            return 1;
+
+        SDL_DestroyTexture(spritesAtlas->texture);
+        spritesAtlas->texture = spritesTexture;
+
+        if (populate_atlas(spritesAtlas, 61, 61) == 0)
             return 1;
     }
 
@@ -83,6 +120,22 @@ Map* load_map(const char *fileName)
             curTile ++;
             bytesRead ++;
         }
+    }
+
+    // load enemies
+    {
+        Sprite *enemies = malloc(sizeof(*enemies) * ENEMY_COUNT);
+
+        if (enemies == NULL)
+            return map;
+
+        enemies[0] = (Sprite) { spritesAtlas->subtextures[83], 0, 0, 0, { 3, 3 } };
+        enemies[1] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 8, 16 } };
+        enemies[2] = (Sprite) { spritesAtlas->subtextures[11], 0, 0, 0, { 6, 17 } };
+        enemies[3] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 6, 6 } };
+        enemies[4] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 9, 2 } };
+        map->entities = enemies;
+        map->entityCount = ENEMY_COUNT;
     }
 
     return map;

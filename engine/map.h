@@ -2,6 +2,7 @@
 #define ENGINE_MAP_H
 
 #include "texture.h"
+#include "entity.h"
 #include "stdinc.h"
 
 typedef enum {
@@ -18,7 +19,8 @@ typedef struct {
     int width;
     int height;
     Tile *tiles;
-    /* TODO Sprite *objects; */
+    int entityCount;
+    Sprite *entities;
 } Map;
 
 // allocate memory for map & tiles

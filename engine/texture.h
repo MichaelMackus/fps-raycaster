@@ -8,6 +8,7 @@ typedef struct {
     int height;
     Color *pixels;
     SDL_Texture *texture;
+    SDL_Surface *surface;
     int subtextureAmount;
     struct SubTexture **subtextures;
 } TextureAtlas;

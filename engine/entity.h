@@ -1,9 +1,7 @@
 #ifndef ENGINE_ENTITY_H
 #define ENGINE_ENTITY_H
 
-// TODO get this from engine
-#define ENEMY_COUNT 5
-
+#include "texture.h"
 #include "stdinc.h"
 
 typedef struct {
@@ -14,7 +12,7 @@ typedef struct {
 
 // representing sprite on screen
 typedef struct {
-    int index; // index in sprite sheet
+    SubTexture *texture;
     double distX; // perpendicular X distance from player
     double distY; // perpendicular Y distance (depth) from player
     double angle; // angle from player dir
@@ -22,6 +20,5 @@ typedef struct {
 } Sprite;
 
 Player* get_player();
-Sprite* get_enemies();
 
 #endif

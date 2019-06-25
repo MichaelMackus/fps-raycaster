@@ -24,6 +24,13 @@ TextureAtlas* create_atlas(const char *fileName)
             return NULL;
         }
 
+        // TODO is this necessary?
+        /* // ensure format is RGBA with 32-bits for color manipulation */
+        /* SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_ARGB8888, 0); */
+        /* if (tmp == NULL) return 1; */
+        /* SDL_FreeSurface(textureSurface); */
+        /* textureSurface = tmp; */
+
         // turn on alpha blending TODO probably want a flag for this
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
     }
@@ -67,12 +74,10 @@ TextureAtlas* create_atlas(const char *fileName)
         atlas->height = surface->h;
         atlas->pixels = colors;
         atlas->texture = texture;
+        atlas->surface = surface;
         atlas->subtextures = NULL;
         atlas->subtextureAmount = 0;
     }
-
-    // don't need anymore
-    SDL_FreeSurface(surface);
 
     return atlas;
 }
@@ -123,6 +128,8 @@ SubTexture* create_subtexture(TextureAtlas *atlas, int width, int height, int xO
     texture->atlas = atlas;
 
     // offset subtexture colors
+    // TODO clamp this to *only* the subtexture colors
+    // TODO currently, this needs the atlas pitch to lookup a color
     Color *pixels = atlas->pixels;
     pixels += yOffset*width + xOffset;
     texture->pixels = pixels;
@@ -154,9 +161,9 @@ int populate_atlas(TextureAtlas *atlas, int subtextureWidth, int subtextureHeigh
     int cols = atlas->width / subtextureWidth;
     int rows = atlas->height / subtextureHeight;
     
-    for (int x = 0; x < cols; ++x)
+    for (int y = 0; y < rows; ++y)
     {
-        for (int y = 0; y < rows; ++y)
+        for (int x = 0; x < cols; ++x)
         {
             int xOffset = x * subtextureWidth;
             int yOffset = y * subtextureHeight;

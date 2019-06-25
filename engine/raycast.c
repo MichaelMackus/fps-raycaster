@@ -9,11 +9,6 @@
 int screenWidth;
 int screenHeight;
 
-// our sprite image
-static SDL_Texture *spritesTexture;
-static SDL_Surface *spritesSurface;
-/* const char* spritesPixels; */
-
 // z-index of drawn walls
 static double* wallZ;
 
@@ -24,32 +19,7 @@ int init_raycast()
     // initialize wallZ array
     wallZ = malloc(sizeof(*wallZ) * screenWidth);
 
-    // load our spritesTexture image
-    spritesSurface = IMG_Load("enemies.png");
-
-    // make sprite outlines transparent
-    Color colors[spritesSurface->w * spritesSurface->h];
-    get_colors(colors, spritesSurface);
-    for (int x = 0; x < spritesSurface->w; ++x)
-    {
-        for (int y = 0; y < spritesSurface->h; ++y)
-        {
-            Color *c = &colors[x + y*spritesSurface->w];
-            if (c->r > 125 && c->g > 125 && c->b > 125)
-            {
-                c->a = 0;
-            }
-        }
-    }
-    update_colors(colors, spritesSurface);
-
-    if (spritesSurface == NULL)
-        return 1;
-
-    spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
-    SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
-
-    if (spritesTexture == NULL)
+    if (wallZ == NULL)
         return 1;
 
     return 0;
@@ -58,9 +28,6 @@ int init_raycast()
 int destroy_raycast()
 {
     free(wallZ);
-
-    SDL_DestroyTexture(spritesTexture);
-    SDL_FreeSurface(spritesSurface);
 
     return 0;
 }
@@ -380,12 +347,8 @@ int raycast(const Map *map)
                     floorPos.x = (1 - t) * player->pos.x + t * rayPos.x;
                     floorPos.y = (1 - t) * player->pos.y + t * rayPos.y;
 
-                    // get the floor tile
+                    // get the floor tile TODO this doesn't seem *quite* right, drawing red line under wall
                     Vector tilePos = floorPos; // TODO remove this & simplify rayPos
-                    if (side == WALL_SOUTH)
-                        floorPos.y -= 1;
-                    if (side == WALL_EAST)
-                        floorPos.x -= 1;
                     const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
 
                     if (tile == NULL)
@@ -440,10 +403,10 @@ int raycast(const Map *map)
 
     // draw enemies
     {
-        Sprite *enemies = get_enemies();
+        Sprite *enemies = map->entities;
 
         // setup enemy distance & angle for sorting
-        for (int i = 0; i < ENEMY_COUNT; ++i)
+        for (int i = 0; i < map->entityCount; ++i)
         {
             Sprite *enemy = &enemies[i];
             Vector enemyPos = enemies[i].pos;
@@ -461,10 +424,10 @@ int raycast(const Map *map)
         }
 
         // sort the enemies by distance
-        qsort(&enemies[0], ENEMY_COUNT, sizeof(Sprite), (const void*) sort_enemies);
+        qsort(&enemies[0], map->entityCount, sizeof(Sprite), (const void*) sort_enemies);
 
         draw_start(3); // layer 3 - sprites (renderer target)
-        for (int i = 0; i < ENEMY_COUNT; ++i)
+        for (int i = 0; i < map->entityCount; ++i)
         {
             Sprite enemy = enemies[i];
             Vector enemyPos = enemy.pos;
@@ -496,8 +459,8 @@ int raycast(const Map *map)
             if (enemy.angle <= player->fov)
             {
                 // draw texture column by column, only if z value higher than wallZ
-                int textureOffsetX = 61*(enemy.index % 13) + 3;
-                int textureOffsetY = floor(enemy.index / 13) * 61;
+                int textureOffsetX = enemy.texture->xOffset;
+                int textureOffsetY = enemy.texture->yOffset;
                 double step = enemyHeight / 61;
                 for (int x = 0; x < 61; ++x)
                 {
@@ -509,8 +472,8 @@ int raycast(const Map *map)
                     if (wallZ[screenColumn] <= enemy.distY) continue;
 
                     // draw sprite
-                    draw_texture(spritesTexture,
-                            textureOffsetX + x, textureOffsetY, 1, 61,
+                    draw_texture(enemy.texture->atlas->texture,
+                            textureOffsetX + x, textureOffsetY, 1, enemy.texture->height,
                             spriteX + x*step, spriteY, ceil(step), enemyHeight);
                 }
             }
