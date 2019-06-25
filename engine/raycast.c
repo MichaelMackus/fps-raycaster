@@ -328,27 +328,40 @@ int raycast(const Map *map)
 
                 // calculate normalized rayPos from playerPos in order to multiply by distance
                 /* Vector normalRay = normalize((Vector) { rayPos.x - player->pos.x, rayPos.y - player->pos.y }); */
-                Vector floorPos = rayPos;
+                Vector floorStart = rayPos;
+                Vector floorPos = floorStart;
 
-                // draw floors below wall TODO abstract using engine
-                int yStart = y + wallHeight;
-                for (y = yStart; y < screenHeight; ++y)
+                // draw floors below wall
+                int yStart = (int)y + (int)wallHeight;
+                for (y = yStart; y < screenHeight; y++)
                 {
                     // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
-                    double currentDist = screenHeight / (2.0 * y - screenHeight);
-                    double t = currentDist / propDist; // weight factor
+                    double currentDist = screenHeight / (2.0 * y - screenHeight); // TODO protect against divide by zero
+                    double t = currentDist / propDist;
 
-                    // using normalized vector: (too slow, uses sqrt)
-                    /* double length = distance(floorPos, player->pos); */
-                    /* floorPos.x += normalRay.x * length; // comes out squished */
-                    /* floorPos.y += normalRay.y * length; */
+                    // guard against a weight of >1
+                    if (t > 1.0) {
+                        t = 1.0;
+                    }
 
                     // using linear interpolation:
-                    floorPos.x = (1 - t) * player->pos.x + t * rayPos.x;
-                    floorPos.y = (1 - t) * player->pos.y + t * rayPos.y;
+                    floorPos.x = (1 - t) * player->pos.x + t * floorStart.x;
+                    floorPos.y = (1 - t) * player->pos.y + t * floorStart.y;
 
-                    // get the floor tile TODO this doesn't seem *quite* right, drawing red line under wall
-                    Vector tilePos = floorPos; // TODO remove this & simplify rayPos
+                    // get floor tile pos
+                    Vector tilePos = floorPos;
+
+                    // ensure we're not drawing the starting wall tile TODO remove this & cleanup rayPos
+                    if ((int) tilePos.x == (int) rayPos.x &&
+                        (int) tilePos.y == (int) rayPos.y)
+                    {
+                        if (side == WALL_NORTH)
+                            tilePos.y -= 1;
+                        if (side == WALL_WEST)
+                            tilePos.x -= 1;
+                    }
+
+                    // get the floor tile
                     const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
 
                     if (tile == NULL)
