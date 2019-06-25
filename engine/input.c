@@ -1,14 +1,11 @@
-#include "engine/entity.h"
-#include "engine/map.h"
+#include "game.h"
 #include "input.h"
 
 #include "SDL.h"
 
-int handle_input(Map *map)
+int handle_input()
 {
     int playing = 1;
-
-    Player *player = get_player();
 
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -33,14 +30,14 @@ int handle_input(Map *map)
     // TODO use this to get mouse pos:
     /* SDL_GetRelativeMouseState(&relx, &rely); */
 
+    Player *player = get_player();
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
     if(keystates[SDL_SCANCODE_W])
     {
         // walk forward in unit circle (unit circle x = cos, y = sin)
         player->pos.x += cos(player->dir) / 10;
         player->pos.y += sin(player->dir) / 10;
-        if (!is_passable(map, player->pos.x, player->pos.y))
-        {
+        if (get_tile(player->pos.x, player->pos.y) == '#') {
             player->pos.x -= cos(player->dir) / 10;
             player->pos.y -= sin(player->dir) / 10;
         }
@@ -50,8 +47,7 @@ int handle_input(Map *map)
         // walk backward in unit circle (unit circle x = cos, y = sin)
         player->pos.x -= cos(player->dir) / 10;
         player->pos.y -= sin(player->dir) / 10;
-        if (!is_passable(map, player->pos.x, player->pos.y))
-        {
+        if (get_tile(player->pos.x, player->pos.y) == '#') {
             player->pos.x += cos(player->dir) / 10;
             player->pos.y += sin(player->dir) / 10;
         }

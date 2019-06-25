@@ -1,23 +1,13 @@
 #include "draw.h"
-#include "game.h"
 #include "raycast.h"
+#include "entity.h"
+#include "map.h"
+#include "stdinc.h"
 
 #include "SDL.h"
 
 int screenWidth;
 int screenHeight;
-
-// our texture image
-static SDL_Texture *texture;
-static SDL_Surface *textureSurface;
-const Uint32* textureColors;
-int textureWidth;
-int textureHeight;
-
-// our sprite image
-static SDL_Texture *spritesTexture;
-static SDL_Surface *spritesSurface;
-/* const char* spritesPixels; */
 
 // z-index of drawn walls
 static double* wallZ;
@@ -29,52 +19,7 @@ int init_raycast()
     // initialize wallZ array
     wallZ = malloc(sizeof(*wallZ) * screenWidth);
 
-    // load our texture image
-    textureSurface = IMG_Load("wolftextures.png");
-    
-    if (textureSurface == NULL)
-        return 1;
-
-    // ensure format is RGBA with 32-bits for color manipulation
-    SDL_Surface *tmp = SDL_ConvertSurfaceFormat(textureSurface, SDL_PIXELFORMAT_ARGB8888, 0);
-    if (tmp == NULL) return 1;
-    SDL_FreeSurface(textureSurface);
-    textureSurface = tmp;
-
-    textureColors = textureSurface->pixels;
-    textureWidth = textureSurface->w;
-    textureHeight = textureSurface->h;
-    texture = SDL_CreateTextureFromSurface(get_renderer(), textureSurface);
-
-    if (texture == NULL)
-        return 1;
-
-    // load our spritesTexture image
-    spritesSurface = IMG_Load("enemies.png");
-
-    // make sprite outlines transparent
-    Color colors[spritesSurface->w * spritesSurface->h];
-    get_colors(colors, spritesSurface);
-    for (int x = 0; x < spritesSurface->w; ++x)
-    {
-        for (int y = 0; y < spritesSurface->h; ++y)
-        {
-            Color *c = &colors[x + y*spritesSurface->w];
-            if (c->r > 125 && c->g > 125 && c->b > 125)
-            {
-                c->a = 0;
-            }
-        }
-    }
-    update_colors(colors, spritesSurface);
-
-    if (spritesSurface == NULL)
-        return 1;
-
-    spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesSurface);
-    SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
-
-    if (spritesTexture == NULL)
+    if (wallZ == NULL)
         return 1;
 
     return 0;
@@ -83,11 +28,6 @@ int init_raycast()
 int destroy_raycast()
 {
     free(wallZ);
-
-    SDL_DestroyTexture(spritesTexture);
-    SDL_FreeSurface(spritesSurface);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(textureSurface);
 
     return 0;
 }
@@ -100,7 +40,7 @@ typedef enum {
 } WallSide;
 
 // whether vector hits wall side
-int hit_wall(Vector pos, WallSide side)
+int hit_wall(const Map *map, Vector pos, WallSide side)
 {
     if (side == WALL_SOUTH)
     {
@@ -112,7 +52,7 @@ int hit_wall(Vector pos, WallSide side)
         pos.x -= 1;
     }
 
-    return get_tile(pos.x, pos.y) == '#';
+    return is_passable(map, pos.x, pos.y) == 0;
 }
 
 // sort function for sorting enemies by depth
@@ -126,7 +66,7 @@ int sort_enemies(const Sprite *e1, const Sprite *e2)
         return 1;
 }
 
-int raycast()
+int raycast(const Map *map)
 {
     Player *player = get_player();
 
@@ -251,7 +191,7 @@ int raycast()
                 {
                     while (xIntercept.y <= yIntercept.y && hit == 0)
                     {
-                        if (hit_wall(xIntercept, WALL_NORTH))
+                        if (hit_wall(map, xIntercept, WALL_NORTH))
                         {
                             hit = 1;
                             side = WALL_NORTH;
@@ -265,7 +205,7 @@ int raycast()
                 {
                     while (xIntercept.y >= yIntercept.y && hit == 0)
                     {
-                        if (hit_wall(xIntercept, WALL_SOUTH))
+                        if (hit_wall(map, xIntercept, WALL_SOUTH))
                         {
                             hit = 1;
                             side = WALL_SOUTH;
@@ -281,7 +221,7 @@ int raycast()
                 {
                     while (yIntercept.x <= xIntercept.x && hit == 0)
                     {
-                        if (hit_wall(yIntercept, WALL_WEST))
+                        if (hit_wall(map, yIntercept, WALL_WEST))
                         {
                             hit = 1;
                             side = WALL_WEST;
@@ -295,7 +235,7 @@ int raycast()
                 {
                     while (yIntercept.x >= xIntercept.x && hit == 0)
                     {
-                        if (hit_wall(yIntercept, WALL_EAST))
+                        if (hit_wall(map, yIntercept, WALL_EAST))
                         {
                             hit = 1;
                             side = WALL_EAST;
@@ -351,17 +291,33 @@ int raycast()
                 if (side == WALL_NORTH || side == WALL_SOUTH) wallX = rayPos.x - floor(rayPos.x);
                 else wallX = rayPos.y - floor(rayPos.y);
 
-                int texturePartWidth = 64; // width of a single texture within texture file
-                int textureX = wallX * texturePartWidth;
-                if ((int) rayPos.y % 8 == 0 || (int) rayPos.x % 8 == 0)
-                    textureX -= texturePartWidth; // Cameron suggested I add this texture
+                // get the texture from the map tile
+                Vector tilePos = rayPos; // TODO remove this & simplify rayPos
+                if (side == WALL_SOUTH)
+                    tilePos.y -= 1;
+                if (side == WALL_EAST)
+                    tilePos.x -= 1;
+                const Tile *t = get_tile(map, tilePos.x, tilePos.y);
+
+                if (t == NULL)
+                {
+#ifdef GAME_DEBUG
+                    printf("Error - wall tile is null\n");
+#endif
+                    return 0;
+                }
+
+                const SubTexture *texture = t->texture;
+
+                // offset from within texture (we're only rendering 1 slice of the wall)
+                int textureX = wallX * texture->width;
 
                 // draw walls on layer 1
                 draw_start(1);
 
                 // draw texture
-                draw_texture(texture,
-                        texturePartWidth + textureX, 0, 1, textureHeight,
+                draw_texture(texture->atlas->texture,
+                        texture->xOffset + textureX, texture->yOffset, 1, texture->height,
                         x, y, 1, wallHeight);
 
                 // TODO add simple lighting
@@ -374,9 +330,8 @@ int raycast()
                 /* Vector normalRay = normalize((Vector) { rayPos.x - player->pos.x, rayPos.y - player->pos.y }); */
                 Vector floorPos = rayPos;
 
-                // draw floors below wall
+                // draw floors below wall TODO abstract using engine
                 int yStart = y + wallHeight;
-                int texturePartHeight = 64; // height of a single texture within texture file
                 for (y = yStart; y < screenHeight; ++y)
                 {
                     // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
@@ -392,14 +347,39 @@ int raycast()
                     floorPos.x = (1 - t) * player->pos.x + t * rayPos.x;
                     floorPos.y = (1 - t) * player->pos.y + t * rayPos.y;
 
-                    double floorY = (floorPos.y - floor(floorPos.y)) * texturePartHeight;
-                    double floorX = (floorPos.x - floor(floorPos.x)) * texturePartWidth;
+                    // get the floor tile TODO this doesn't seem *quite* right, drawing red line under wall
+                    Vector tilePos = floorPos; // TODO remove this & simplify rayPos
+                    const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
 
+                    if (tile == NULL)
+                    {
+#ifdef GAME_DEBUG
+                        printf("Error - floor tile is null\n");
+#endif
+                        return 0;
+                    }
+
+                    // get colors from tile's subtexture
+                    Color *colors = tile->texture->pixels;
+
+                    double floorY = (floorPos.y - floor(floorPos.y)) * tile->texture->height;
+                    double floorX = (floorPos.x - floor(floorPos.x)) * tile->texture->width;
+
+                    // hardcoded version from before - a bit better performance
+                    /* const unsigned int offset = (pitch/sizeof(Uint32))*y + x; */
+                    /* const unsigned int textureOffset = */ 
+                    /*     (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY); */
+                    /* pixels[offset] = textureColors[textureOffset]; */
+
+                    // TODO performance
+                    // TODO will this work with all source pixel formats?
                     const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
                     const unsigned int textureOffset = 
-                        (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY);
-
-                    pixels[offset] = textureColors[textureOffset];
+                        ((int) floorX) + (tile->texture->atlas->width * (int) floorY);
+                    pixels[offset] = (0xFF << 24) |
+                        (colors[textureOffset].r << 16) |
+                        (colors[textureOffset].g << 8) |
+                        (colors[textureOffset].b);
                 }
             } else {
                 wallZ[x] = 99999;
@@ -423,10 +403,10 @@ int raycast()
 
     // draw enemies
     {
-        Sprite *enemies = get_enemies();
+        Sprite *enemies = map->entities;
 
         // setup enemy distance & angle for sorting
-        for (int i = 0; i < ENEMY_COUNT; ++i)
+        for (int i = 0; i < map->entityCount; ++i)
         {
             Sprite *enemy = &enemies[i];
             Vector enemyPos = enemies[i].pos;
@@ -444,10 +424,10 @@ int raycast()
         }
 
         // sort the enemies by distance
-        qsort(&enemies[0], ENEMY_COUNT, sizeof(Sprite), (const void*) sort_enemies);
+        qsort(&enemies[0], map->entityCount, sizeof(Sprite), (const void*) sort_enemies);
 
         draw_start(3); // layer 3 - sprites (renderer target)
-        for (int i = 0; i < ENEMY_COUNT; ++i)
+        for (int i = 0; i < map->entityCount; ++i)
         {
             Sprite enemy = enemies[i];
             Vector enemyPos = enemy.pos;
@@ -479,8 +459,8 @@ int raycast()
             if (enemy.angle <= player->fov)
             {
                 // draw texture column by column, only if z value higher than wallZ
-                int textureOffsetX = 61*(enemy.index % 13) + 3;
-                int textureOffsetY = floor(enemy.index / 13) * 61;
+                int textureOffsetX = enemy.texture->xOffset;
+                int textureOffsetY = enemy.texture->yOffset;
                 double step = enemyHeight / 61;
                 for (int x = 0; x < 61; ++x)
                 {
@@ -492,8 +472,8 @@ int raycast()
                     if (wallZ[screenColumn] <= enemy.distY) continue;
 
                     // draw sprite
-                    draw_texture(spritesTexture,
-                            textureOffsetX + x, textureOffsetY, 1, 61,
+                    draw_texture(enemy.texture->atlas->texture,
+                            textureOffsetX + x, textureOffsetY, 1, enemy.texture->height,
                             spriteX + x*step, spriteY, ceil(step), enemyHeight);
                 }
             }
