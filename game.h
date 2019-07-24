@@ -13,4 +13,7 @@ int init_game();
 // initialize game map
 Map* load_map(const char *fileName);
 
+// do raycasting & draw
+int do_raycast(const Map *map);
+
 #endif

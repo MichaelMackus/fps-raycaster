@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     while (handle_input(map))
     {
         // update screen data
-        if (!raycast(map)) break;
+        if (!do_raycast(map)) break;
 
         // calculate FPS
         unsigned int time = SDL_GetTicks();
