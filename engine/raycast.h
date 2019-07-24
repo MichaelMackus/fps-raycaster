@@ -10,14 +10,15 @@ int init_raycast();
 int destroy_raycast();
 
 // TODO
-/* typedef struct { */
-/*     int distance; // proportional distance to object */
-/*     const Tile *tile; // map tile */
-/*     int xOffset; // x-offset *within* the tile that the ray hit */
-/*     int yOffset; // y-offset *within* the tile that the ray hit */
-/* } RaycastHit; */
+typedef struct {
+    Vector rayPos;
+    Vector tilePos;
+    double distance; // proportional distance to object
+    double xOffset; // x-offset *within* the tile that the ray hit
+    double yOffset; // y-offset *within* the tile that the ray hit
+} Ray;
 
 // do the raycast for the column & return proportional distance to wall
-Vector raycast(const Map *map, int x);
+Ray raycast(const Map *map, int x);
 
 #endif

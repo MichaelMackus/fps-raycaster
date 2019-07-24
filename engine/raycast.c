@@ -44,7 +44,7 @@ int hit_wall(const Map *map, Vector pos, WallSide side)
     return is_passable(map, pos.x, pos.y) == 0;
 }
 
-Vector raycast(const Map *map, int x)
+Ray raycast(const Map *map, int x)
 {
     Player *player = get_player();
 
@@ -231,9 +231,10 @@ Vector raycast(const Map *map, int x)
         // more efficient way:
         // delta x = d * cos(rayDir.x), delta y = d * cos(rayDir.y)
         // which expands into:
-        /* double propDist = cos(player->dir) * (rayPos.x - player->pos.x) + sin(player->dir) * (rayPos.y - player->pos.y); */
+        double propDist = cos(player->dir) * (rayPos.x - player->pos.x) + sin(player->dir) * (rayPos.y - player->pos.y);
 
-        // TODO
+        Vector tilePos = rayPos;
+
         // ensure we're not drawing the starting wall tile TODO remove this & cleanup rayPos
         /* if ((int) tilePos.x == (int) rayPos.x && */
         /*     (int) tilePos.y == (int) rayPos.y) */
@@ -244,8 +245,32 @@ Vector raycast(const Map *map, int x)
         /*         tilePos.x -= 1; */
         /* } */
 
-        return rayPos;
+        if (side == WALL_SOUTH)
+            tilePos.y -= 1;
+        if (side == WALL_EAST)
+            tilePos.x -= 1;
+
+        // calculate which part of texture to render
+        /* Vector difference = (Vector) { rayPos.x - floor(rayPos.x), rayPos.y - floor(rayPos.y) }; */ // using vector subtraction
+        /* double wallX = sqrt(difference.x*difference.x + difference.y*difference.y); */
+        // more efficient:
+        double wallX = rayPos.x - floor(rayPos.x); // where within the wall did the ray hit
+        if (side == WALL_NORTH || side == WALL_SOUTH) wallX = rayPos.x - floor(rayPos.x);
+        else wallX = rayPos.y - floor(rayPos.y);
+
+        Ray ray;
+        ray.rayPos = rayPos;
+        ray.tilePos = tilePos;
+        ray.distance = propDist;
+        ray.xOffset = wallX;
+
+        return ray;
     }
 
-    return player->pos;
+    Ray ray;
+    ray.rayPos = player->pos;
+    ray.tilePos = player->pos;
+    ray.distance = 9999;
+
+    return ray;
 }

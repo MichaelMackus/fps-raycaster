@@ -201,25 +201,10 @@ int do_raycast(const Map *map)
         // detect which squares the player can see, and draw them proportionally to distance
         for (int x = 0; x < screenWidth; ++x)
         {
-            Vector rayPos = raycast(map, x);
-            /* printf("ray: %f, %f\n", rayPos.x, rayPos.y); */
-            /* continue; */
+            Ray ray = raycast(map, x);
+            Vector rayPos = ray.rayPos;
 
-            double propDist;
-            if (rayPos.x == player->pos.x && rayPos.y == player->pos.y)
-            {
-                propDist = 9999;
-            }
-            else
-            {
-                // calculate proportional distance (corrects for fisheye effect)
-                /* double propDist = distance(rayPos, player->pos) * cos(rayDir - player->dir); */
-                // more efficient way:
-                // delta x = d * cos(rayDir.x), delta y = d * cos(rayDir.y)
-                // which expands into:
-                propDist = cos(player->dir) * (rayPos.x - player->pos.x) + sin(player->dir) * (rayPos.y - player->pos.y);
-            }
-
+            double propDist = ray.distance;
             wallZ[x] = propDist;
 
             // calculate wall proportion percentage
@@ -231,22 +216,10 @@ int do_raycast(const Map *map)
             double wallHeight = screenHeight * proportion;
             double y = (screenHeight - wallHeight) / 2;
 
-            // calculate which part of texture to render
-            /* Vector difference = (Vector) { rayPos.x - floor(rayPos.x), rayPos.y - floor(rayPos.y) }; */ // using vector subtraction
-            /* double wallX = sqrt(difference.x*difference.x + difference.y*difference.y); */
-            // more efficient:
-            double wallX = rayPos.x - floor(rayPos.x); // where within the wall did the ray hit
-            // TODO
-            /* if (side == WALL_NORTH || side == WALL_SOUTH) wallX = rayPos.x - floor(rayPos.x); */
-            /* else wallX = rayPos.y - floor(rayPos.y); */
+            double wallX = ray.xOffset;
 
             // get the texture from the map tile
-            Vector tilePos = rayPos; // TODO remove this & simplify rayPos
-            // TODO
-            /* if (side == WALL_SOUTH) */
-            /*     tilePos.y -= 1; */
-            /* if (side == WALL_EAST) */
-            /*     tilePos.x -= 1; */
+            Vector tilePos = ray.tilePos;
             const Tile *t = get_tile(map, tilePos.x, tilePos.y);
 
             if (t == NULL)
@@ -298,21 +271,8 @@ int do_raycast(const Map *map)
                 floorPos.x = (1 - t) * player->pos.x + t * floorStart.x;
                 floorPos.y = (1 - t) * player->pos.y + t * floorStart.y;
 
-                // get floor tile pos
-                Vector tilePos = floorPos;
-
-                // ensure we're not drawing the starting wall tile TODO remove this & cleanup rayPos
-                // TODO
-                /* if ((int) tilePos.x == (int) rayPos.x && */
-                /*         (int) tilePos.y == (int) rayPos.y) */
-                /* { */
-                /*     if (side == WALL_NORTH) */
-                /*         tilePos.y -= 1; */
-                /*     if (side == WALL_WEST) */
-                /*         tilePos.x -= 1; */
-                /* } */
-
                 // get the floor tile
+                Vector tilePos = floorPos;
                 const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
 
                 if (tile == NULL)
