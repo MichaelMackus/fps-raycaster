@@ -201,22 +201,31 @@ int do_raycast(const Map *map)
         // draw floor scanlines
         for (int y = 0; y < screenHeight/2; y++)
         {
+            Vector ray = floorcast(map, y);
+            Vector interval = floorcast_get_interval(map, y);
+
             for (int x = 0; x < screenWidth; x++)
             {
-                Ray ray = floorcast(map, x, y);
-
                 // get the floor tile
-                const Tile *tile = get_tile(map, (int)(ray.tilePos.x), (int)(ray.tilePos.y));
+                const Tile *tile = get_tile(map, (int)(ray.x), (int)(ray.y));
                 if (tile == NULL)
+                {
+                    ray.x += interval.x;
+                    ray.y += interval.y;
+
                     continue;
+                }
 
                 // get colors from tile's subtexture
                 Color *colors = tile->texture->pixels;
 
                 // get the texture coordinate from the fractional part
                 // TODO shouldn't need abs, but floorPos going negative
-                int tx = (int)abs(tile->texture->width * ray.xOffset);
-                int ty = (int)abs(tile->texture->height * ray.yOffset);
+                int tx = (int)abs(tile->texture->width * (ray.x - (int)ray.x));
+                int ty = (int)abs(tile->texture->height * (ray.y - (int)ray.y));
+
+                ray.x += interval.x;
+                ray.y += interval.y;
 
                 // TODO performance
                 // TODO will this work with all source pixel formats?
