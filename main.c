@@ -123,6 +123,7 @@ int main(int argc, char **argv)
             char title[100];
             Player *player = get_player();
             sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, player->pos.x, player->pos.y, to_degrees(player->dir));
+            printf("FPS: %f, Pos: (%f, %f), Angle: %f\n", fps, player->pos.x, player->pos.y, to_degrees(player->dir));
             SDL_SetWindowTitle(win, title);
         }
 
