@@ -8,6 +8,13 @@
 
 int screenWidth;
 int screenHeight;
+double distanceToSurface = 0;
+Player *player = NULL;
+
+// for floorcasting TODO Cleanup
+Vector floorPos, ray1, ray2;
+double currentDist = 0, floorStepX = 0, floorStepY = 0;
+int currentFloorY = 999999, currentFloorX = 0;
 
 int init_raycast()
 {
@@ -49,7 +56,8 @@ Ray raycast(const Map *map, int x)
     Player *player = get_player();
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
-    double distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
+    if (distanceToSurface == 0)
+        distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
 
     // calculate ray direction
     /* double rayDir = player->dir - (player->fov/2) + x * (player->fov/screenWidth); // generates distortion towards edges */
@@ -271,6 +279,62 @@ Ray raycast(const Map *map, int x)
     ray.rayPos = player->pos;
     ray.tilePos = player->pos;
     ray.distance = 9999;
+
+    return ray;
+}
+
+// do a floorcast for the row & return ray to first column of floor
+Ray floorcast(const Map *map, int x, int y)
+{
+    if (player == NULL)
+        player = get_player();
+
+    // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
+    if (distanceToSurface == 0)
+        distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
+
+    if (currentFloorY > y)
+    {
+        // first pass, initialize variables
+        double rayDist = 1/sin(player->fov/2);
+        double rayDir1 = rotate(player->dir, -1 * player->fov/2);
+        double rayDir2 = rotate(player->dir, player->fov/2);
+        ray1.x = rayDist * cos(rayDir1);
+        ray1.y = rayDist * sin(rayDir1);
+        ray2.x = rayDist * cos(rayDir2);
+        ray2.y = rayDist * sin(rayDir2);
+    }
+
+    if (currentFloorY != y)
+    {
+        // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
+        currentDist = screenHeight / (screenHeight - 2.0 * y);
+        floorStepX = currentDist * (ray2.x - ray1.x) / (distanceToSurface*2);
+        floorStepY = currentDist * (ray2.y - ray1.y) / (distanceToSurface*2);
+
+        floorPos.x = player->pos.x + currentDist * ray1.x;
+        floorPos.y = player->pos.y + currentDist * ray1.y;
+    }
+    else
+    {
+        for (int i = x - currentFloorX; i > 0; --i)
+        {
+            floorPos.x += floorStepX;
+            floorPos.y += floorStepY;
+        }
+    }
+
+    currentFloorX = x;
+    currentFloorY = y;
+
+    Ray ray;
+    ray.rayPos = floorPos;
+    ray.tilePos = floorPos;
+    ray.tilePos.x = (int)floorPos.x;
+    ray.tilePos.y = (int)floorPos.y;
+    ray.xOffset = floorPos.x - ray.tilePos.x;
+    ray.yOffset = floorPos.y - ray.tilePos.y;
+    ray.distance = currentDist;
 
     return ray;
 }

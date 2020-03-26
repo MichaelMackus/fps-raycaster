@@ -198,54 +198,25 @@ int do_raycast(const Map *map)
         SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
         memset(pixels, 0, pitch * screenHeight); // clear streaming target
 
-        // draw floors & ceiling
-        double rayDist = 1/sin(player->fov/2);
-        double rayDir1 = rotate(player->dir, -1 * player->fov/2);
-        double rayDir2 = rotate(player->dir, player->fov/2);
-        Vector ray1 = { rayDist * cos(rayDir1), rayDist * sin(rayDir1) };
-        Vector ray2 = { rayDist * cos(rayDir2), rayDist * sin(rayDir2) };
-
+        // draw floor scanlines
         for (int y = 0; y < screenHeight/2; y++)
         {
-            // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
-            double currentDist = screenHeight / (screenHeight - 2.0 * y);
-            double floorStepX = currentDist * (ray2.x - ray1.x) / (distanceToSurface*2);
-            double floorStepY = currentDist * (ray2.y - ray1.y) / (distanceToSurface*2);
-
-            // real world coordinates of the leftmost column. This will be updated as we step to the right.
-            Vector floorPos = { player->pos.x + currentDist * ray1.x, player->pos.y + currentDist * ray1.y };
-
             for (int x = 0; x < screenWidth; x++)
             {
-                // the cell coord is simply got from the integer parts of floorX and floorY
-                int cellX = (int)(floorPos.x);
-                int cellY = (int)(floorPos.y);
+                Ray ray = floorcast(map, x, y);
 
                 // get the floor tile
-                const Tile *tile = get_tile(map, cellX, cellY);
-
+                const Tile *tile = get_tile(map, (int)(ray.tilePos.x), (int)(ray.tilePos.y));
                 if (tile == NULL)
-                {
-#ifdef GAME_DEBUG
-                    printf("Error - floor tile is null\n");
-#endif
-
-                    floorPos.x += floorStepX;
-                    floorPos.y += floorStepY;
-
                     continue;
-                }
 
                 // get colors from tile's subtexture
                 Color *colors = tile->texture->pixels;
 
                 // get the texture coordinate from the fractional part
                 // TODO shouldn't need abs, but floorPos going negative
-                int tx = (int)abs(tile->texture->width * (floorPos.x - cellX));
-                int ty = (int)abs(tile->texture->height * (floorPos.y - cellY));
-
-                floorPos.x += floorStepX;
-                floorPos.y += floorStepY;
+                int tx = (int)abs(tile->texture->width * ray.xOffset);
+                int ty = (int)abs(tile->texture->height * ray.yOffset);
 
                 // TODO performance
                 // TODO will this work with all source pixel formats?
