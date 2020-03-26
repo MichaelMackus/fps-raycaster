@@ -186,7 +186,7 @@ int do_raycast(const Map *map)
 
     draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
     draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
-    /* draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1); */
+    draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
 
     // draw the floor and the walls
     {
@@ -205,11 +205,10 @@ int do_raycast(const Map *map)
         Vector ray1 = { rayDist * cos(rayDir1), rayDist * sin(rayDir1) };
         Vector ray2 = { rayDist * cos(rayDir2), rayDist * sin(rayDir2) };
 
-        for (int y = (screenHeight/2) + 1; y < screenHeight; y++)
+        for (int y = 0; y < screenHeight/2; y++)
         {
             // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
-            double currentDist = screenHeight / (2.0 * y - screenHeight); // TODO protect against divide by zero
-
+            double currentDist = screenHeight / (screenHeight - 2.0 * y);
             double floorStepX = currentDist * (ray2.x - ray1.x) / (distanceToSurface*2);
             double floorStepY = currentDist * (ray2.y - ray1.y) / (distanceToSurface*2);
 
@@ -259,6 +258,18 @@ int do_raycast(const Map *map)
             }
         }
 
+        // copy ceiling to floor (layer 2 - texture target)
+        SDL_UnlockTexture(streamTexture);
+        draw_start(2);
+        SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
+        SDL_RenderCopyEx(get_renderer(),
+                streamTexture,
+                &rect,
+                &rect,
+                0,
+                NULL,
+                SDL_FLIP_VERTICAL);
+
         // draw walls
         for (int x = 0; x < screenWidth; ++x)
         {
@@ -297,7 +308,7 @@ int do_raycast(const Map *map)
             int textureX = wallX * texture->width;
 
             // draw walls on layer 2 (above floor/ceiling)
-            draw_start(2);
+            draw_start(3);
 
             // draw texture
             draw_texture(texture->atlas->texture,
@@ -310,19 +321,6 @@ int do_raycast(const Map *map)
             /* if (side == 1) lighting *= 0.75; */
             /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
         }
-
-        SDL_UnlockTexture(streamTexture);
-
-        // copy floor to ceiling (layer 1 - texture target)
-        /* draw_start(1); */
-        /* SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight }; */
-        /* SDL_RenderCopyEx(get_renderer(), */
-        /*         streamTexture, */
-        /*         &rect, */
-        /*         &rect, */
-        /*         0, */
-        /*         NULL, */
-        /*         SDL_FLIP_VERTICAL); */
     }
     // end draw the floor and the walls
 
