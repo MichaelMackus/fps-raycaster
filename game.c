@@ -141,10 +141,10 @@ Map* load_map(const char *fileName)
                 /*     break; */
 
                 /* // slimy floor */
-                /* case '_': */
-                /*     curTile->type = TILE_PASSABLE; */
-                /*     curTile->texture = textureAtlas->subtextures[5]; */
-                /*     break; */
+                case '_':
+                    curTile->type = TILE_PASSABLE;
+                    curTile->texture = textureAtlas->subtextures[5];
+                    break;
 
                 // floor tile
                 default:
@@ -184,21 +184,73 @@ int do_raycast(const Map *map)
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
 
-    draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
-    draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
+    draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
+    draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
     draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
 
     // draw the floor and the walls
     {
         // detect which squares the player can see, and draw them proportionally to distance
         // get texture & lock for streaming
-        SDL_Texture *streamTexture = get_texture(2);
+        SDL_Texture *streamTexture = get_texture(1);
         Uint32 *pixels;
         int pitch;
         SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
         memset(pixels, 0, pitch * screenHeight); // clear streaming target
 
-        // detect which squares the player can see, and draw them proportionally to distance
+        // draw floor scanlines
+        for (int y = 0; y < screenHeight/2; y++)
+        {
+            Vector ray = floorcast(map, y);
+            Vector interval = floorcast_get_interval(map, y);
+
+            for (int x = 0; x < screenWidth; x++)
+            {
+                // get the floor tile
+                const Tile *tile = get_tile(map, (int)(ray.x), (int)(ray.y));
+                if (tile == NULL)
+                {
+                    ray.x += interval.x;
+                    ray.y += interval.y;
+
+                    continue;
+                }
+
+                // get colors from tile's subtexture
+                Color *colors = tile->texture->pixels;
+
+                // get the texture coordinate from the fractional part
+                // TODO shouldn't need abs, but floorPos going negative
+                int tx = (int)abs(tile->texture->width * (ray.x - (int)ray.x));
+                int ty = (int)abs(tile->texture->height * (ray.y - (int)ray.y));
+
+                ray.x += interval.x;
+                ray.y += interval.y;
+
+                // TODO performance
+                // TODO will this work with all source pixel formats?
+                const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
+                const unsigned int textureOffset = tile->texture->atlas->width * ty + tx;
+                pixels[offset] = (0xFF << 24) |
+                    (colors[textureOffset].r << 16) |
+                    (colors[textureOffset].g << 8) |
+                    (colors[textureOffset].b);
+            }
+        }
+
+        // copy ceiling to floor (layer 2 - texture target)
+        SDL_UnlockTexture(streamTexture);
+        draw_start(2);
+        SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
+        SDL_RenderCopyEx(get_renderer(),
+                streamTexture,
+                &rect,
+                &rect,
+                0,
+                NULL,
+                SDL_FLIP_VERTICAL);
+
+        // draw walls
         for (int x = 0; x < screenWidth; ++x)
         {
             Ray ray = raycast(map, x);
@@ -235,8 +287,8 @@ int do_raycast(const Map *map)
             // offset from within texture (we're only rendering 1 slice of the wall)
             int textureX = wallX * texture->width;
 
-            // draw walls on layer 1
-            draw_start(1);
+            // draw walls on layer 2 (above floor/ceiling)
+            draw_start(3);
 
             // draw texture
             draw_texture(texture->atlas->texture,
@@ -248,77 +300,7 @@ int do_raycast(const Map *map)
             /* if (lighting > 1) lighting = 1; */
             /* if (side == 1) lighting *= 0.75; */
             /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
-
-            // calculate normalized rayPos from playerPos in order to multiply by distance
-            /* Vector normalRay = normalize((Vector) { rayPos.x - player->pos.x, rayPos.y - player->pos.y }); */
-            Vector floorStart = rayPos;
-            Vector floorPos = floorStart;
-
-            // draw floors below wall
-            int yStart = (int)y + (int)wallHeight;
-            for (y = yStart; y < screenHeight; y++)
-            {
-                // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
-                double currentDist = screenHeight / (2.0 * y - screenHeight); // TODO protect against divide by zero
-                double t = currentDist / propDist;
-
-                // guard against a weight of >1
-                if (t > 1.0) {
-                    t = 1.0;
-                }
-
-                // using linear interpolation:
-                floorPos.x = (1 - t) * player->pos.x + t * floorStart.x;
-                floorPos.y = (1 - t) * player->pos.y + t * floorStart.y;
-
-                // get the floor tile
-                Vector tilePos = floorPos;
-                const Tile *tile = get_tile(map, tilePos.x, tilePos.y);
-
-                if (tile == NULL)
-                {
-#ifdef GAME_DEBUG
-                    printf("Error - floor tile is null\n");
-#endif
-                    return 0;
-                }
-
-                // get colors from tile's subtexture
-                Color *colors = tile->texture->pixels;
-
-                double floorY = (floorPos.y - floor(floorPos.y)) * tile->texture->height;
-                double floorX = (floorPos.x - floor(floorPos.x)) * tile->texture->width;
-
-                // hardcoded version from before - a bit better performance
-                /* const unsigned int offset = (pitch/sizeof(Uint32))*y + x; */
-                /* const unsigned int textureOffset = */ 
-                /*     (texturePartWidth*3 + (int) floorX) + ((textureSurface->pitch)/4 * (int) floorY); */
-                /* pixels[offset] = textureColors[textureOffset]; */
-
-                // TODO performance
-                // TODO will this work with all source pixel formats?
-                const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
-                const unsigned int textureOffset = 
-                    ((int) floorX) + (tile->texture->atlas->width * (int) floorY);
-                pixels[offset] = (0xFF << 24) |
-                    (colors[textureOffset].r << 16) |
-                    (colors[textureOffset].g << 8) |
-                    (colors[textureOffset].b);
-            }
         }
-
-        SDL_UnlockTexture(streamTexture);
-
-        // copy floor to ceiling (layer 1 - texture target)
-        draw_start(1);
-        SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
-        SDL_RenderCopyEx(get_renderer(),
-                streamTexture,
-                &rect,
-                &rect,
-                0,
-                NULL,
-                SDL_FLIP_VERTICAL);
     }
     // end draw the floor and the walls
 

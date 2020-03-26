@@ -9,7 +9,6 @@ int init_raycast();
 // destroy raycast renderer
 int destroy_raycast();
 
-// TODO
 typedef struct {
     Vector rayPos;
     Vector tilePos;
@@ -20,5 +19,12 @@ typedef struct {
 
 // do the raycast for the column & return proportional distance to wall
 Ray raycast(const Map *map, int x);
+
+// do a floorcast for the first column of the row
+Vector floorcast(const Map *map, int y);
+
+// get a vector that represents the interval to add to the floorcast for
+// each step of x column (this avoids costly trig during looping)
+Vector floorcast_get_interval(const Map *map, int y);
 
 #endif

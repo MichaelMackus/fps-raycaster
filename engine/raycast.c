@@ -8,6 +8,8 @@
 
 int screenWidth;
 int screenHeight;
+double distanceToSurface = 0;
+Player *player = NULL;
 
 int init_raycast()
 {
@@ -49,7 +51,8 @@ Ray raycast(const Map *map, int x)
     Player *player = get_player();
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
-    double distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
+    if (distanceToSurface == 0)
+        distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
 
     // calculate ray direction
     /* double rayDir = player->dir - (player->fov/2) + x * (player->fov/screenWidth); // generates distortion towards edges */
@@ -273,4 +276,58 @@ Ray raycast(const Map *map, int x)
     ray.distance = 9999;
 
     return ray;
+}
+
+// do a floorcast for the row & return ray to first column of floor
+Vector floorcast(const Map *map, int y)
+{
+    if (player == NULL)
+        player = get_player();
+
+    // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
+    if (distanceToSurface == 0)
+        distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
+
+    // first pass, initialize variables
+    double currentDist = screenHeight / (screenHeight - 2.0 * y);
+    double rayDist = 1/sin(player->fov/2);
+    double rayDir1 = rotate(player->dir, -1 * player->fov/2);
+    Vector ray1;
+    ray1.x = rayDist * cos(rayDir1);
+    ray1.y = rayDist * sin(rayDir1);
+
+    Vector ray;
+    ray.x = player->pos.x + currentDist * ray1.x;
+    ray.y = player->pos.y + currentDist * ray1.y;
+
+    return ray;
+}
+
+Vector floorcast_get_interval(const Map *map, int y)
+{
+    if (player == NULL)
+        player = get_player();
+
+    // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
+    if (distanceToSurface == 0)
+        distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
+
+    Vector interval;
+
+    // first pass, initialize variables
+    double currentDist = screenHeight / (screenHeight - 2.0 * y);
+    double rayDist = 1/sin(player->fov/2);
+    double rayDir1 = rotate(player->dir, -1 * player->fov/2);
+    double rayDir2 = rotate(player->dir, player->fov/2);
+    Vector ray1, ray2;
+    ray1.x = rayDist * cos(rayDir1);
+    ray1.y = rayDist * sin(rayDir1);
+    ray2.x = rayDist * cos(rayDir2);
+    ray2.y = rayDist * sin(rayDir2);
+
+    // the distance, from 1 to infinity, where infinity is middle of screen and 1 is bottom of screen
+    interval.x = currentDist * (ray2.x - ray1.x) / (distanceToSurface*2);
+    interval.y = currentDist * (ray2.y - ray1.y) / (distanceToSurface*2);
+
+    return interval;
 }
