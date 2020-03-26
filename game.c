@@ -207,7 +207,8 @@ int do_raycast(const Map *map)
             {
                 // get the floor tile
                 const Tile *tile = get_tile(map, (int)(ray.x), (int)(ray.y));
-                if (tile == NULL)
+                if (tile == NULL ||
+                    tile->type != TILE_PASSABLE) // cheap trick to ensure we don't draw walls as floor
                 {
                     ray.x += interval.x;
                     ray.y += interval.y;
