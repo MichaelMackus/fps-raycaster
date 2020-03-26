@@ -129,16 +129,15 @@ Map* load_map(const char *fileName)
             switch (line[i]) {
                 // wall tile
                 case '#':
-                case '&':
                     curTile->type = TILE_SOLID;
                     curTile->texture = textureAtlas->subtextures[3];
                     break;
 
                 // flag tile
-                /* case '&': */
-                /*     curTile->type = TILE_SOLID; */
-                /*     curTile->texture = textureAtlas->subtextures[1]; */
-                /*     break; */
+                case '&':
+                    curTile->type = TILE_SOLID;
+                    curTile->texture = textureAtlas->subtextures[0];
+                    break;
 
                 /* // slimy floor */
                 case '_':
