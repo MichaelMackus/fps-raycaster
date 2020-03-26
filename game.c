@@ -216,9 +216,6 @@ int do_raycast(const Map *map)
             // real world coordinates of the leftmost column. This will be updated as we step to the right.
             Vector floorPos = { player->pos.x + currentDist * ray1.x, player->pos.y + currentDist * ray1.y };
 
-            if (floorPos.x >= map->width || floorPos.y >= map->height || floorPos.x < 0 || floorPos.y < 0)
-                continue;
-
             for (int x = 0; x < screenWidth; x++)
             {
                 // the cell coord is simply got from the integer parts of floorX and floorY
@@ -234,7 +231,6 @@ int do_raycast(const Map *map)
                     printf("Error - floor tile is null\n");
 #endif
 
-                    // close to center of screen/infinity so continue without drawing this line
                     floorPos.x += floorStepX;
                     floorPos.y += floorStepY;
 
@@ -245,8 +241,9 @@ int do_raycast(const Map *map)
                 Color *colors = tile->texture->pixels;
 
                 // get the texture coordinate from the fractional part
-                int tx = (int)(tile->texture->width * (floorPos.x - cellX));
-                int ty = (int)(tile->texture->height * (floorPos.y - cellY));
+                // TODO shouldn't need abs, but floorPos going negative
+                int tx = (int)abs(tile->texture->width * (floorPos.x - cellX));
+                int ty = (int)abs(tile->texture->height * (floorPos.y - cellY));
 
                 floorPos.x += floorStepX;
                 floorPos.y += floorStepY;
