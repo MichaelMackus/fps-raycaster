@@ -33,16 +33,10 @@ void free_map(Map *map)
 
 const Tile* get_tile(const Map *map, int x, int y)
 {
-    if (x >= map->width)
-    {
-        printf("out of bounds\n");
+    if (x >= map->width || y >= map->height)
         return NULL;
-    }
-    if (y >= map->height)
-    {
-        printf("out of bounds\n");
+    if (x < 0 || y < 0)
         return NULL;
-    }
 
     return &(map->tiles[y*map->width + x]);
 }
