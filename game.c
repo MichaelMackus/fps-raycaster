@@ -139,16 +139,10 @@ Map* load_map(const char *fileName)
                     curTile->texture = textureAtlas->subtextures[0];
                     break;
 
-                /* // slimy floor */
-                case '_':
-                    curTile->type = TILE_PASSABLE;
-                    curTile->texture = textureAtlas->subtextures[5];
-                    break;
-
                 // floor tile
                 default:
                     curTile->type = TILE_PASSABLE;
-                    curTile->texture = textureAtlas->subtextures[7];
+                    curTile->texture = textureAtlas->subtextures[6];
             }
 
             curTile ++;
@@ -227,28 +221,22 @@ int do_raycast(const Map *map)
                 ray.x += interval.x;
                 ray.y += interval.y;
 
-                // TODO performance
                 // TODO will this work with all source pixel formats?
                 const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
                 const unsigned int textureOffset = tile->texture->atlas->width * ty + tx;
-                pixels[offset] = (0xFF << 24) |
+                pixels[offset] = (0x3F << 24) |
+                    (colors[textureOffset].r << 16) |
+                    (colors[textureOffset].g << 8) |
+                    (colors[textureOffset].b);
+                const unsigned int floorOffset = (pitch/sizeof(Uint32))*(screenHeight - y -1) + x;
+                pixels[floorOffset] = (0xFF << 24) |
                     (colors[textureOffset].r << 16) |
                     (colors[textureOffset].g << 8) |
                     (colors[textureOffset].b);
             }
         }
 
-        // copy ceiling to floor (layer 2 - texture target)
         SDL_UnlockTexture(streamTexture);
-        draw_start(2);
-        SDL_Rect rect = (SDL_Rect) { 0, 0, screenWidth, screenHeight };
-        SDL_RenderCopyEx(get_renderer(),
-                streamTexture,
-                &rect,
-                &rect,
-                0,
-                NULL,
-                SDL_FLIP_VERTICAL);
 
         // draw walls
         for (int x = 0; x < screenWidth; ++x)
