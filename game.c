@@ -12,7 +12,10 @@ int screenHeight;
 // z-index of drawn walls
 static double* wallZ;
 
+// multiple different texture atlas for pre-rendered lighting of map textures
 TextureAtlas *textureAtlas;
+TextureAtlas *textureAtlas2;
+// sprites textures
 TextureAtlas *spritesAtlas;
 
 // sort function for sorting enemies by depth
@@ -46,11 +49,17 @@ int init_game()
     // load textures
     {
         textureAtlas = create_atlas("wolftextures.png");
+        textureAtlas2 = create_atlas("wolftextures.png");
+
+        SDL_SetTextureColorMod(textureAtlas->texture, 125, 125, 125);
+        SDL_SetTextureColorMod(textureAtlas2->texture, 210, 210, 210);
 
         if (textureAtlas == NULL)
             return 1;
 
         if (populate_atlas(textureAtlas, 64, 64) == 0)
+            return 1;
+        if (populate_atlas(textureAtlas2, 64, 64) == 0)
             return 1;
     }
 
@@ -228,8 +237,9 @@ int do_raycast(const Map *map)
                     (colors[textureOffset].r << 16) |
                     (colors[textureOffset].g << 8) |
                     (colors[textureOffset].b);
+
                 const unsigned int floorOffset = (pitch/sizeof(Uint32))*(screenHeight - y -1) + x;
-                pixels[floorOffset] = (0xFF << 24) |
+                pixels[floorOffset] = (0xCF << 24) |
                     (colors[textureOffset].r << 16) |
                     (colors[textureOffset].g << 8) |
                     (colors[textureOffset].b);
@@ -270,24 +280,23 @@ int do_raycast(const Map *map)
                 return 0;
             }
 
-            const SubTexture *texture = t->texture;
-
             // offset from within texture (we're only rendering 1 slice of the wall)
-            int textureX = wallX * texture->width;
+            int textureX = wallX * t->texture->width;
 
             // draw walls on layer 2 (above floor/ceiling)
             draw_start(3);
 
-            // draw texture
-            draw_texture(texture->atlas->texture,
-                    texture->xOffset + textureX, texture->yOffset, 1, texture->height,
-                    x, y, 1, wallHeight);
+            // add simple lighting to add definition for cube edges
+            SDL_Texture *texture;
+            if (ray.side == WALL_SOUTH || ray.side == WALL_NORTH)
+                texture = textureAtlas->texture;
+            else
+                texture = textureAtlas2->texture;
 
-            // TODO add simple lighting
-            /* double lighting = 1 / propDist; */
-            /* if (lighting > 1) lighting = 1; */
-            /* if (side == 1) lighting *= 0.75; */
-            /* draw_line(x, y, x, y + wallHeight, 255, 255, 255, 100*lighting); */
+            // draw texture
+            draw_texture(texture,
+                    t->texture->xOffset + textureX, t->texture->yOffset, 1, t->texture->height,
+                    x, y, 1, wallHeight);
         }
     }
     // end draw the floor and the walls

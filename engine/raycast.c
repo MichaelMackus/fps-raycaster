@@ -23,13 +23,6 @@ int destroy_raycast()
     return 0;
 }
 
-typedef enum {
-    WALL_NORTH,
-    WALL_EAST,
-    WALL_WEST,
-    WALL_SOUTH
-} WallSide;
-
 // whether vector hits wall side
 int hit_wall(const Map *map, Vector pos, WallSide side)
 {
@@ -266,6 +259,7 @@ Ray raycast(const Map *map, int x)
         ray.tilePos = tilePos;
         ray.distance = propDist;
         ray.xOffset = wallX;
+        ray.side = side;
 
         return ray;
     }
