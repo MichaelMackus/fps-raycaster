@@ -223,14 +223,14 @@ Map* load_map(const char *fileName)
 
         for (int i = 0; i < SPRITE_COUNT; ++i) enemies[i].texture = NULL;
 
-        /* enemies[0] = (Sprite) { spritesAtlas->subtextures[83], SPRITE_ENEMY, 0, 0, 0, { 3, 3 }, 0 }; */
-        /* enemies[1] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 8, 16 }, 0 }; */
-        /* enemies[2] = (Sprite) { spritesAtlas->subtextures[11], SPRITE_ENEMY, 0, 0, 0, { 6, 17 }, 0 }; */
-        /* enemies[3] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 6, 6 }, 0 }; */
-        /* enemies[4] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 9, 2 }, 0 }; */
+        enemies[0] = (Sprite) { spritesAtlas->subtextures[83], SPRITE_ENEMY, 0, 0, 0, { 3, 3 }, 0 };
+        enemies[1] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 8, 16 }, 0 };
+        enemies[2] = (Sprite) { spritesAtlas->subtextures[11], SPRITE_ENEMY, 0, 0, 0, { 6, 17 }, 0 };
+        enemies[3] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 6, 6 }, 0 };
+        enemies[4] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 9, 2 }, 0 };
 
         map->entities = enemies;
-        map->entityCount = 0;
+        map->entityCount = 5;
     }
 
     return map;
@@ -416,8 +416,8 @@ int do_raycast(Map *map)
                         enemies[j].pos.y = -1;
                     }
                 }
-                enemies[i].pos.x += cos(enemies[i].dir);
-                enemies[i].pos.y += sin(enemies[i].dir);
+                enemies[i].pos.x += cos(enemies[i].dir)/10.0;
+                enemies[i].pos.y += sin(enemies[i].dir)/10.0;
             }
 
             Sprite enemy = enemies[i];
