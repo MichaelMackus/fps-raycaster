@@ -380,9 +380,16 @@ int do_raycast(Map *map)
             Vector normPlayer = (Vector) { cos(player->dir), sin(player->dir) };
             Vector venemy = (Vector) { enemyPos.x - player->pos.x, enemyPos.y - player->pos.y };
             Vector normEnemy = normalize(venemy);
-            enemy->angle = acos(dot_product(normPlayer, normEnemy));
+
+            // *cross* product to calculate which side of player
+            double product = -1*normPlayer.y*normEnemy.x + normPlayer.x*normEnemy.y;
+            if (product > 0)
+                enemy->side = 1; // right side
+            else
+                enemy->side = -1; // right side
 
             // dist is euclidian distance (from player to enemy)
+            enemy->angle = acos(dot_product(normPlayer, normEnemy));
             double dist = distance(player->pos, enemyPos);
             // distX & distY are perpendicular distance from camera in X & Y
             enemy->distX = sin(enemy->angle) * dist;
@@ -416,13 +423,6 @@ int do_raycast(Map *map)
             Sprite enemy = enemies[i];
             Vector enemyPos = enemy.pos;
 
-            // calculate which side of screen
-            // TODO when -1 causing some glitches when changing dir
-            int side = 1; // right side
-            if ((player->dir <= M_PI && (cos(player->dir)*enemy.distY + player->pos.x < enemyPos.x)) ||
-                    (player->dir > M_PI && (cos(player->dir)*enemy.distY + player->pos.x > enemyPos.x)))
-                side = -1; // left side
-
             // midX & midY are middle of the screen
             double midX = screenWidth / 2;
             double midY = screenHeight / 2;
@@ -438,7 +438,7 @@ int do_raycast(Map *map)
             // projection_plane_distance / z3d (same for y2d and y3d). Almost
             // everything in a raycaster boils down to that
             //
-            double spriteX = (midX - enemyHeight/2) + side * (enemy.distX*distanceToSurface/enemy.distY);
+            double spriteX = (midX - enemyHeight/2) + enemy.side * (enemy.distX*distanceToSurface/enemy.distY);
             double spriteY = midY - enemyHeight/2;
 
             if (enemy.angle <= player->fov)
