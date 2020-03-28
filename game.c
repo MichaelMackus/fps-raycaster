@@ -217,16 +217,21 @@ Map* load_map(const char *fileName)
         if (enemies == NULL)
             return map;
 
-        for (int i = 0; i < MAX_ENTITY_COUNT; ++i) enemies[i].texture = NULL;
+        for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
+        {
+            enemies[i].texture = NULL;
+            enemies[i].health = 0;
+            enemies[i].pos.x = -1;
+            enemies[i].pos.y = -1;
+        }
 
-        enemies[0] = (Entity) { spritesAtlas->subtextures[83], ENTITY_ENEMY, { 3, 3 }, 0 };
-        enemies[1] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 8, 16 }, 0 };
-        enemies[2] = (Entity) { spritesAtlas->subtextures[11], ENTITY_ENEMY, { 6, 17 }, 0 };
-        enemies[3] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 6, 6 }, 0 };
-        enemies[4] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 9, 2 }, 0 };
+        enemies[0] = (Entity) { spritesAtlas->subtextures[83], ENTITY_ENEMY, { 3, 3 }, 0, 100 };
+        enemies[1] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 8, 16 }, 0, 100 };
+        enemies[2] = (Entity) { spritesAtlas->subtextures[11], ENTITY_ENEMY, { 6, 17 }, 0, 100 };
+        enemies[3] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 6, 6 }, 0, 100 };
+        enemies[4] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 9, 2 }, 0, 100 };
 
         map->entities = enemies;
-        map->entityCount = 5;
     }
 
     return map;
@@ -357,36 +362,60 @@ int do_raycast(Map *map)
     // draw enemies & objects
     {
         // if player has started shooting, spawn the projectile
-        if (player->shooting && map->entityCount < MAX_ENTITY_COUNT)
+        if (player->shooting > 0)
         {
-            map->entities[map->entityCount] =
-                (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir };
-            ++(map->entityCount);
+            // find a spot for the new projectile entity
+            for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
+            {
+                if (map->entities[i].health <= 0)
+                {
+                    map->entities[i] =
+                        (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir, 100 };
+                    break;
+                }
+            }
+            // stop shooting (with a delay of 10 frames)
+            player->shooting = -10;
         }
-        player->shooting = 0;
+        // still recovering from recent shot
+        else if (player->shooting < 0)
+            ++player->shooting;
 
         // setup enemy distance & angle for sorting
         int spriteCount = 0;
-        for (int i = 0; i < map->entityCount; ++i)
+        for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
         {
+            if (map->entities[i].health <= 0)
+                // this entity is dead (or does not exist)
+                continue;
+
             // if this is a projectile, move it forward & perform collision detection
             if (map->entities[i].type == ENTITY_PROJECTILE)
             {
                 // look for an enemy in this position
-                for (int j = 0; j < map->entityCount; ++j)
+                for (int j = 0; j < MAX_ENTITY_COUNT; ++j)
                 {
                     if (map->entities[j].type == ENTITY_ENEMY &&
+                        map->entities[j].health > 0 &&
                         check_collision(map->entities[i].pos, map->entities[j].pos, 1, 1))
                     {
-                        map->entities[j].pos.x = -1;
-                        map->entities[j].pos.y = -1;
+                        // collision found - hurt enemy & destroy projectile
+                        map->entities[j].health -= 50;
+                        map->entities[i].health = 0;
                     }
                 }
+                // move projectile
                 if (map->entities[i].pos.x > 0 && map->entities[i].pos.y > 0 &&
                     map->entities[i].pos.x < map->width && map->entities[i].pos.y < map->height)
                 {
                     map->entities[i].pos.x += cos(map->entities[i].dir);
                     map->entities[i].pos.y += sin(map->entities[i].dir);
+                }
+                else
+                {
+                    // out of bounds, destroy projectile
+                    map->entities[i].health = 0;
+                    continue;
                 }
             }
 

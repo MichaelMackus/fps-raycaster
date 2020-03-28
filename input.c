@@ -66,8 +66,9 @@ int handle_input(Map *map)
         // turn right
         player->dir = rotate(player->dir, 0.05);
     }
-    if (keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL])
-    {
+    if (keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL] &&
+        player->shooting == 0 // wait until able to shoot
+    ) {
         // shoot bullet
         player->shooting = 1;
     }

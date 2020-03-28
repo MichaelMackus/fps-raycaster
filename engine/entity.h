@@ -24,6 +24,7 @@ typedef struct {
     EntityType type;
     Vector pos; // position on 2d map
     double dir; // heading direction
+    int health;
 } Entity;
 
 // represents a sprite that is relative to the player location, and ready for
