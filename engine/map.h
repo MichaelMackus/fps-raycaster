@@ -19,7 +19,6 @@ typedef struct {
     int width;
     int height;
     Tile *tiles;
-    int entityCount;
     Entity *entities;
 } Map;
 
