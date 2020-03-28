@@ -25,6 +25,7 @@ typedef struct {
     double angle; // angle from player dir
     Vector pos; // position on 2d map
     double dir; // direction projectile is heading
+    int side; // side of screen
 } Sprite;
 
 Player* get_player();
