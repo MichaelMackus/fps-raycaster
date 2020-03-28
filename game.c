@@ -22,8 +22,11 @@ TextureAtlas *textureAtlas3;
 TextureAtlas *spritesAtlas;
 TextureAtlas *projectilesAtlas;
 
-// sort function for sorting enemies by depth
-int sort_enemies(const Sprite *e1, const Sprite *e2)
+// array of sprites for rendering
+Sprite *sprites;
+
+// sort function for sorting entities by depth
+int sort_sprites(const Sprite *e1, const Sprite *e2)
 {
     if (e1->distY > e2->distY)
         return -1;
@@ -41,6 +44,8 @@ int init_game()
     player->dir = to_radians(90);
     player->fov = to_radians(90);
     player->shooting = 0;
+
+    sprites = malloc(sizeof(Sprite) * MAX_ENTITY_COUNT);
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 
@@ -216,18 +221,18 @@ Map* load_map(const char *fileName)
 
     // load enemies
     {
-        Sprite *enemies = malloc(sizeof(*enemies) * SPRITE_COUNT);
+        Entity *enemies = malloc(sizeof(*enemies) * MAX_ENTITY_COUNT);
 
         if (enemies == NULL)
             return map;
 
-        for (int i = 0; i < SPRITE_COUNT; ++i) enemies[i].texture = NULL;
+        for (int i = 0; i < MAX_ENTITY_COUNT; ++i) enemies[i].texture = NULL;
 
-        enemies[0] = (Sprite) { spritesAtlas->subtextures[83], SPRITE_ENEMY, 0, 0, 0, { 3, 3 }, 0 };
-        enemies[1] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 8, 16 }, 0 };
-        enemies[2] = (Sprite) { spritesAtlas->subtextures[11], SPRITE_ENEMY, 0, 0, 0, { 6, 17 }, 0 };
-        enemies[3] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 6, 6 }, 0 };
-        enemies[4] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 9, 2 }, 0 };
+        enemies[0] = (Entity) { spritesAtlas->subtextures[83], ENTITY_ENEMY, { 3, 3 }, 0 };
+        enemies[1] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 8, 16 }, 0 };
+        enemies[2] = (Entity) { spritesAtlas->subtextures[11], ENTITY_ENEMY, { 6, 17 }, 0 };
+        enemies[3] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 6, 6 }, 0 };
+        enemies[4] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 9, 2 }, 0 };
 
         map->entities = enemies;
         map->entityCount = 5;
@@ -361,108 +366,111 @@ int do_raycast(Map *map)
     // draw enemies & objects
     {
         // if player has started shooting, spawn the projectile
-        if (player->shooting && map->entityCount < SPRITE_COUNT)
+        if (player->shooting && map->entityCount < MAX_ENTITY_COUNT)
         {
             map->entities[map->entityCount] =
-                (Sprite) { projectilesAtlas->subtextures[0], SPRITE_PROJECTILE, 0, 0, 0, player->pos, player->dir };
+                (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir };
             ++(map->entityCount);
         }
         player->shooting = 0;
 
-        Sprite *enemies = map->entities;
-
         // setup enemy distance & angle for sorting
+        int spriteCount = 0;
         for (int i = 0; i < map->entityCount; ++i)
         {
-            Sprite *enemy = &enemies[i];
-            Vector enemyPos = enemies[i].pos;
+            Entity entity = map->entities[i];
+            Sprite sprite;
+
             // calculate angle to enemy using dot product
             Vector normPlayer = (Vector) { cos(player->dir), sin(player->dir) };
-            Vector venemy = (Vector) { enemyPos.x - player->pos.x, enemyPos.y - player->pos.y };
+            Vector venemy = (Vector) { entity.pos.x - player->pos.x, entity.pos.y - player->pos.y };
             Vector normEnemy = normalize(venemy);
 
             // *cross* product to calculate which side of player
             double product = -1*normPlayer.y*normEnemy.x + normPlayer.x*normEnemy.y;
             if (product > 0)
-                enemy->side = 1; // right side
+                sprite.side = 1; // right side
             else
-                enemy->side = -1; // right side
+                sprite.side = -1; // right side
 
             // dist is euclidian distance (from player to enemy)
-            enemy->angle = acos(dot_product(normPlayer, normEnemy));
-            double dist = distance(player->pos, enemyPos);
+            sprite.angle = acos(dot_product(normPlayer, normEnemy));
+            double dist = distance(player->pos, entity.pos);
             // distX & distY are perpendicular distance from camera in X & Y
-            enemy->distX = sin(enemy->angle) * dist;
-            enemy->distY = cos(enemy->angle) * dist;
+            sprite.distX = sin(sprite.angle) * dist;
+            sprite.distY = cos(sprite.angle) * dist;
+            sprite.entity = &(map->entities[i]);
+
+            sprites[spriteCount] = sprite;
+            ++spriteCount;
         }
 
         // sort the enemies by distance
-        qsort(&enemies[0], map->entityCount, sizeof(Sprite), (const void*) sort_enemies);
+        qsort(&sprites[0], spriteCount, sizeof(Sprite), (const void*) sort_sprites);
 
         draw_start(3); // layer 3 - sprites (renderer target)
-        for (int i = 0; i < map->entityCount; ++i)
+        for (int i = 0; i < spriteCount; ++i)
         {
+            Sprite sprite = sprites[i];
+
             // if this is a projectile, move it forward & perform collision detection
-            if (enemies[i].type == SPRITE_PROJECTILE)
+            if (sprite.entity->type == ENTITY_PROJECTILE)
             {
                 // look for an enemy in this position
                 for (int j = 0; j < map->entityCount; ++j)
                 {
-                    if (enemies[j].type == SPRITE_ENEMY &&
-                        check_collision(enemies[i].pos, enemies[j].pos, 1, 1))
+                    if (map->entities[j].type == ENTITY_ENEMY &&
+                        check_collision(sprite.entity->pos, map->entities[j].pos, 1, 1))
                     {
-                        enemies[j].pos.x = -1;
-                        enemies[j].pos.y = -1;
+                        map->entities[j].pos.x = -1;
+                        map->entities[j].pos.y = -1;
                     }
                 }
-                if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 &&
-                    enemies[i].pos.x < map->width && enemies[i].pos.y < map->height)
+                if (sprite.entity->pos.x > 0 && sprite.entity->pos.y > 0 &&
+                    sprite.entity->pos.x < map->width && sprite.entity->pos.y < map->height)
                 {
-                    enemies[i].pos.x += cos(enemies[i].dir);
-                    enemies[i].pos.y += sin(enemies[i].dir);
+                    sprite.entity->pos.x += cos(sprite.entity->dir);
+                    sprite.entity->pos.y += sin(sprite.entity->dir);
                 }
             }
-
-            Sprite enemy = enemies[i];
-            Vector enemyPos = enemy.pos;
 
             // midX & midY are middle of the screen
             double midX = screenWidth / 2;
             double midY = screenHeight / 2;
 
             // calculate proportional (perpendicular) distance from player to enemy
-            double proportion = 1 / enemy.distY;
+            double proportion = 1 / sprite.distY;
             if (proportion < 0)
                 proportion = 0;
-            double enemyHeight = screenHeight * proportion;
+            double spriteHeight = screenHeight * proportion;
 
             // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
             // Generally to project a 3D point to a 2D plane you do x2d = x3d *
             // projection_plane_distance / z3d (same for y2d and y3d). Almost
             // everything in a raycaster boils down to that
             //
-            double spriteX = (midX - enemyHeight/2) + enemy.side * (enemy.distX*distanceToSurface/enemy.distY);
-            double spriteY = midY - enemyHeight/2;
+            double spriteX = (midX - spriteHeight/2) + sprite.side * (sprite.distX*distanceToSurface/sprite.distY);
+            double spriteY = midY - spriteHeight/2;
 
-            if (enemy.angle <= player->fov)
+            if (sprite.angle <= player->fov)
             {
                 // draw texture column by column, only if z value higher than wallZ
-                int textureOffsetX = enemy.texture->xOffset;
-                int textureOffsetY = enemy.texture->yOffset;
-                double step = enemyHeight / enemy.texture->width;
-                for (int x = 0; x < enemy.texture->width; ++x)
+                int textureOffsetX = sprite.entity->texture->xOffset;
+                int textureOffsetY = sprite.entity->texture->yOffset;
+                double step = spriteHeight / sprite.entity->texture->width;
+                for (int x = 0; x < sprite.entity->texture->width; ++x)
                 {
                     // protect drawing past screen edges
                     int screenColumn = (int) (spriteX + x*step);
                     if (screenColumn < 0 || screenColumn >= screenWidth) continue;
 
                     // skip drawing over closer walls
-                    if (wallZ[screenColumn] <= enemy.distY) continue;
+                    if (wallZ[screenColumn] <= sprite.distY) continue;
 
                     // draw sprite
-                    draw_texture(enemy.texture->atlas->texture,
-                            textureOffsetX + x, textureOffsetY, 1, enemy.texture->height,
-                            spriteX + x*step, spriteY, ceil(step), enemyHeight);
+                    draw_texture(sprite.entity->texture->atlas->texture,
+                            textureOffsetX + x, textureOffsetY, 1, sprite.entity->texture->height,
+                            spriteX + x*step, spriteY, ceil(step), spriteHeight);
                 }
             }
         }

@@ -20,7 +20,7 @@ typedef struct {
     int height;
     Tile *tiles;
     int entityCount;
-    Sprite *entities;
+    Entity *entities;
 } Map;
 
 // allocate memory for map & tiles

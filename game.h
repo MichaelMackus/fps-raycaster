@@ -3,7 +3,7 @@
 
 #define MAP_WIDTH 19
 #define MAP_HEIGHT 19
-#define SPRITE_COUNT 100
+#define MAX_ENTITY_COUNT 100
 
 #include "engine/map.h"
 

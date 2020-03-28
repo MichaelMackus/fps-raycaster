@@ -11,23 +11,29 @@ typedef struct {
     int shooting; // whether player is trying to shoot
 } Player;
 
+Player* get_player();
+
 typedef enum {
-    SPRITE_ENEMY,
-    SPRITE_PROJECTILE
-} SpriteType;
+    ENTITY_ENEMY,
+    ENTITY_PROJECTILE
+} EntityType;
 
 // representing sprite on screen
 typedef struct {
     SubTexture *texture;
-    SpriteType type;
+    EntityType type;
+    Vector pos; // position on 2d map
+    double dir; // heading direction
+} Entity;
+
+// represents a sprite that is relative to the player location, and ready for
+// rendering to the screen
+typedef struct {
+    Entity *entity;
     double distX; // perpendicular X distance from player
     double distY; // perpendicular Y distance (depth) from player
     double angle; // angle from player dir
-    Vector pos; // position on 2d map
-    double dir; // direction projectile is heading
     int side; // side of screen
 } Sprite;
-
-Player* get_player();
 
 #endif
