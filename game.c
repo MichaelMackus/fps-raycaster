@@ -369,6 +369,27 @@ int do_raycast(Map *map)
         int spriteCount = 0;
         for (int i = 0; i < map->entityCount; ++i)
         {
+            // if this is a projectile, move it forward & perform collision detection
+            if (map->entities[i].type == ENTITY_PROJECTILE)
+            {
+                // look for an enemy in this position
+                for (int j = 0; j < map->entityCount; ++j)
+                {
+                    if (map->entities[j].type == ENTITY_ENEMY &&
+                        check_collision(map->entities[i].pos, map->entities[j].pos, 1, 1))
+                    {
+                        map->entities[j].pos.x = -1;
+                        map->entities[j].pos.y = -1;
+                    }
+                }
+                if (map->entities[i].pos.x > 0 && map->entities[i].pos.y > 0 &&
+                    map->entities[i].pos.x < map->width && map->entities[i].pos.y < map->height)
+                {
+                    map->entities[i].pos.x += cos(map->entities[i].dir);
+                    map->entities[i].pos.y += sin(map->entities[i].dir);
+                }
+            }
+
             Entity entity = map->entities[i];
             Sprite sprite;
 
@@ -403,27 +424,6 @@ int do_raycast(Map *map)
         for (int i = 0; i < spriteCount; ++i)
         {
             Sprite sprite = sprites[i];
-
-            // if this is a projectile, move it forward & perform collision detection
-            if (sprite.entity->type == ENTITY_PROJECTILE)
-            {
-                // look for an enemy in this position
-                for (int j = 0; j < map->entityCount; ++j)
-                {
-                    if (map->entities[j].type == ENTITY_ENEMY &&
-                        check_collision(sprite.entity->pos, map->entities[j].pos, 1, 1))
-                    {
-                        map->entities[j].pos.x = -1;
-                        map->entities[j].pos.y = -1;
-                    }
-                }
-                if (sprite.entity->pos.x > 0 && sprite.entity->pos.y > 0 &&
-                    sprite.entity->pos.x < map->width && sprite.entity->pos.y < map->height)
-                {
-                    sprite.entity->pos.x += cos(sprite.entity->dir);
-                    sprite.entity->pos.y += sin(sprite.entity->dir);
-                }
-            }
 
             // midX & midY are middle of the screen
             double midX = screenWidth / 2;
