@@ -3,6 +3,7 @@
 #include "engine/map.h"
 #include "engine/entity.h"
 #include "engine/raycast.h"
+#include "engine/stdinc.h"
 
 #include <stdio.h>
 
@@ -14,9 +15,12 @@ static double* wallZ;
 
 // multiple different texture atlas for pre-rendered lighting of map textures
 TextureAtlas *textureAtlas;
+TextureAtlas *textureAtlas1;
 TextureAtlas *textureAtlas2;
+TextureAtlas *textureAtlas3;
 // sprites textures
 TextureAtlas *spritesAtlas;
+TextureAtlas *projectilesAtlas;
 
 // sort function for sorting enemies by depth
 int sort_enemies(const Sprite *e1, const Sprite *e2)
@@ -36,6 +40,7 @@ int init_game()
     player->pos.y = 9.5;
     player->dir = to_radians(90);
     player->fov = to_radians(90);
+    player->shooting = 0;
 
     get_screen_dimensions(&screenWidth, &screenHeight);
 
@@ -49,9 +54,12 @@ int init_game()
     // load textures
     {
         textureAtlas = create_atlas("wolftextures.png");
+        textureAtlas1 = create_atlas("wolftextures.png");
         textureAtlas2 = create_atlas("wolftextures.png");
+        textureAtlas3 = create_atlas("wolftextures.png");
 
         SDL_SetTextureColorMod(textureAtlas->texture, 125, 125, 125);
+        SDL_SetTextureColorMod(textureAtlas1->texture, 170, 170, 170);
         SDL_SetTextureColorMod(textureAtlas2->texture, 210, 210, 210);
 
         if (textureAtlas == NULL)
@@ -59,7 +67,11 @@ int init_game()
 
         if (populate_atlas(textureAtlas, 64, 64) == 0)
             return 1;
+        if (populate_atlas(textureAtlas1, 64, 64) == 0)
+            return 1;
         if (populate_atlas(textureAtlas2, 64, 64) == 0)
+            return 1;
+        if (populate_atlas(textureAtlas3, 64, 64) == 0)
             return 1;
     }
 
@@ -96,6 +108,48 @@ int init_game()
         spritesAtlas->texture = spritesTexture;
 
         if (populate_atlas(spritesAtlas, 61, 61) == 0)
+            return 1;
+    }
+
+    // load projectiles
+    {
+        projectilesAtlas = create_atlas("fireball.jpg");
+
+        if (projectilesAtlas == NULL)
+            return 1;
+
+        // convert to RGBA32 (so we can modify transparency)
+        SDL_PixelFormat *format = SDL_AllocFormat(SDL_PIXELFORMAT_RGBA32);
+        SDL_Surface *newSurface = SDL_ConvertSurface(projectilesAtlas->surface, format, 0);
+        SDL_FreeFormat(format);
+        projectilesAtlas->surface = newSurface;
+
+        // make sprite outlines transparent
+        for (int x = 0; x < projectilesAtlas->width; ++x)
+        {
+            for (int y = 0; y < projectilesAtlas->height; ++y)
+            {
+                Color *c = &projectilesAtlas->pixels[x + y*projectilesAtlas->surface->w];
+                if (c->r > 150 && c->g > 150 && c->b > 150)
+                {
+                    c->a = 0;
+                }
+            }
+        }
+
+        if (update_colors(projectilesAtlas->pixels, projectilesAtlas->surface) != 0)
+            return 1;
+
+        SDL_Texture *spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), projectilesAtlas->surface);
+        SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
+
+        if (spritesTexture == NULL)
+            return 1;
+
+        SDL_DestroyTexture(projectilesAtlas->texture);
+        projectilesAtlas->texture = spritesTexture;
+
+        if (populate_atlas(projectilesAtlas, 140, 140) == 0)
             return 1;
     }
 
@@ -162,24 +216,27 @@ Map* load_map(const char *fileName)
 
     // load enemies
     {
-        Sprite *enemies = malloc(sizeof(*enemies) * ENEMY_COUNT);
+        Sprite *enemies = malloc(sizeof(*enemies) * SPRITE_COUNT);
 
         if (enemies == NULL)
             return map;
 
-        enemies[0] = (Sprite) { spritesAtlas->subtextures[83], 0, 0, 0, { 3, 3 } };
-        enemies[1] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 8, 16 } };
-        enemies[2] = (Sprite) { spritesAtlas->subtextures[11], 0, 0, 0, { 6, 17 } };
-        enemies[3] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 6, 6 } };
-        enemies[4] = (Sprite) { spritesAtlas->subtextures[15], 0, 0, 0, { 9, 2 } };
+        for (int i = 0; i < SPRITE_COUNT; ++i) enemies[i].texture = NULL;
+
+        enemies[0] = (Sprite) { spritesAtlas->subtextures[83], SPRITE_ENEMY, 0, 0, 0, { 3, 3 }, 0 };
+        enemies[1] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 8, 16 }, 0 };
+        enemies[2] = (Sprite) { spritesAtlas->subtextures[11], SPRITE_ENEMY, 0, 0, 0, { 6, 17 }, 0 };
+        enemies[3] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 6, 6 }, 0 };
+        enemies[4] = (Sprite) { spritesAtlas->subtextures[15], SPRITE_ENEMY, 0, 0, 0, { 9, 2 }, 0 };
+
         map->entities = enemies;
-        map->entityCount = ENEMY_COUNT;
+        map->entityCount = 5;
     }
 
     return map;
 }
 
-int do_raycast(const Map *map)
+int do_raycast(Map *map)
 {
     Player *player = get_player();
 
@@ -301,8 +358,17 @@ int do_raycast(const Map *map)
     }
     // end draw the floor and the walls
 
-    // draw enemies
+    // draw enemies & objects
     {
+        // if player has started shooting, spawn the projectile
+        if (player->shooting && map->entityCount < SPRITE_COUNT)
+        {
+            map->entities[map->entityCount] =
+                (Sprite) { projectilesAtlas->subtextures[0], SPRITE_PROJECTILE, 0, 0, 0, player->pos, player->dir };
+            ++(map->entityCount);
+        }
+        player->shooting = 0;
+
         Sprite *enemies = map->entities;
 
         // setup enemy distance & angle for sorting
@@ -314,9 +380,16 @@ int do_raycast(const Map *map)
             Vector normPlayer = (Vector) { cos(player->dir), sin(player->dir) };
             Vector venemy = (Vector) { enemyPos.x - player->pos.x, enemyPos.y - player->pos.y };
             Vector normEnemy = normalize(venemy);
-            enemy->angle = acos(dot_product(normPlayer, normEnemy));
+
+            // *cross* product to calculate which side of player
+            double product = -1*normPlayer.y*normEnemy.x + normPlayer.x*normEnemy.y;
+            if (product > 0)
+                enemy->side = 1; // right side
+            else
+                enemy->side = -1; // right side
 
             // dist is euclidian distance (from player to enemy)
+            enemy->angle = acos(dot_product(normPlayer, normEnemy));
             double dist = distance(player->pos, enemyPos);
             // distX & distY are perpendicular distance from camera in X & Y
             enemy->distX = sin(enemy->angle) * dist;
@@ -329,14 +402,29 @@ int do_raycast(const Map *map)
         draw_start(3); // layer 3 - sprites (renderer target)
         for (int i = 0; i < map->entityCount; ++i)
         {
+            // if this is a projectile, move it forward & perform collision detection
+            if (enemies[i].type == SPRITE_PROJECTILE)
+            {
+                // look for an enemy in this position
+                for (int j = 0; j < map->entityCount; ++j)
+                {
+                    if (enemies[j].type == SPRITE_ENEMY &&
+                        check_collision(enemies[i].pos, enemies[j].pos, 1, 1))
+                    {
+                        enemies[j].pos.x = -1;
+                        enemies[j].pos.y = -1;
+                    }
+                }
+                if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 &&
+                    enemies[i].pos.x < map->width && enemies[i].pos.y < map->height)
+                {
+                    enemies[i].pos.x += cos(enemies[i].dir);
+                    enemies[i].pos.y += sin(enemies[i].dir);
+                }
+            }
+
             Sprite enemy = enemies[i];
             Vector enemyPos = enemy.pos;
-
-            // calculate which side of screen
-            int side = 1; // right side
-            if ((player->dir <= M_PI && (cos(player->dir)*enemy.distY + player->pos.x < enemyPos.x)) ||
-                    (player->dir > M_PI && (cos(player->dir)*enemy.distY + player->pos.x > enemyPos.x)))
-                side = -1; // left side
 
             // midX & midY are middle of the screen
             double midX = screenWidth / 2;
@@ -353,7 +441,7 @@ int do_raycast(const Map *map)
             // projection_plane_distance / z3d (same for y2d and y3d). Almost
             // everything in a raycaster boils down to that
             //
-            double spriteX = (midX - enemyHeight/2) + side * (enemy.distX*distanceToSurface/enemy.distY);
+            double spriteX = (midX - enemyHeight/2) + enemy.side * (enemy.distX*distanceToSurface/enemy.distY);
             double spriteY = midY - enemyHeight/2;
 
             if (enemy.angle <= player->fov)
@@ -361,8 +449,8 @@ int do_raycast(const Map *map)
                 // draw texture column by column, only if z value higher than wallZ
                 int textureOffsetX = enemy.texture->xOffset;
                 int textureOffsetY = enemy.texture->yOffset;
-                double step = enemyHeight / 61;
-                for (int x = 0; x < 61; ++x)
+                double step = enemyHeight / enemy.texture->width;
+                for (int x = 0; x < enemy.texture->width; ++x)
                 {
                     // protect drawing past screen edges
                     int screenColumn = (int) (spriteX + x*step);

@@ -3,7 +3,7 @@
 
 #define MAP_WIDTH 19
 #define MAP_HEIGHT 19
-#define ENEMY_COUNT 5
+#define SPRITE_COUNT 100
 
 #include "engine/map.h"
 
@@ -14,6 +14,6 @@ int init_game();
 Map* load_map(const char *fileName);
 
 // do raycasting & draw
-int do_raycast(const Map *map);
+int do_raycast(Map *map);
 
 #endif
