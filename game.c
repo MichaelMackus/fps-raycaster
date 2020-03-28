@@ -13,11 +13,9 @@ int screenHeight;
 // z-index of drawn walls
 static double* wallZ;
 
-// multiple different texture atlas for pre-rendered lighting of map textures
+// multiple different texture atlas for pre-rendered shading of map textures
 TextureAtlas *textureAtlas;
-TextureAtlas *textureAtlas1;
 TextureAtlas *textureAtlas2;
-TextureAtlas *textureAtlas3;
 // sprites textures
 TextureAtlas *spritesAtlas;
 TextureAtlas *projectilesAtlas;
@@ -59,12 +57,9 @@ int init_game()
     // load textures
     {
         textureAtlas = create_atlas("wolftextures.png");
-        textureAtlas1 = create_atlas("wolftextures.png");
         textureAtlas2 = create_atlas("wolftextures.png");
-        textureAtlas3 = create_atlas("wolftextures.png");
 
         SDL_SetTextureColorMod(textureAtlas->texture, 125, 125, 125);
-        SDL_SetTextureColorMod(textureAtlas1->texture, 170, 170, 170);
         SDL_SetTextureColorMod(textureAtlas2->texture, 210, 210, 210);
 
         if (textureAtlas == NULL)
@@ -72,11 +67,7 @@ int init_game()
 
         if (populate_atlas(textureAtlas, 64, 64) == 0)
             return 1;
-        if (populate_atlas(textureAtlas1, 64, 64) == 0)
-            return 1;
         if (populate_atlas(textureAtlas2, 64, 64) == 0)
-            return 1;
-        if (populate_atlas(textureAtlas3, 64, 64) == 0)
             return 1;
     }
 
