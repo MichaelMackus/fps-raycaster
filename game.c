@@ -409,15 +409,18 @@ int do_raycast(Map *map)
                 for (int j = 0; j < map->entityCount; ++j)
                 {
                     if (enemies[j].type == SPRITE_ENEMY &&
-                        (int)(enemies[i].pos.x) == (int)(enemies[j].pos.x) &&
-                        (int)(enemies[i].pos.x) == (int)(enemies[j].pos.x))
+                        check_collision(enemies[i].pos, enemies[j].pos, 1, 1))
                     {
                         enemies[j].pos.x = -1;
                         enemies[j].pos.y = -1;
                     }
                 }
-                enemies[i].pos.x += cos(enemies[i].dir)/10.0;
-                enemies[i].pos.y += sin(enemies[i].dir)/10.0;
+                if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 &&
+                    enemies[i].pos.x < map->width && enemies[i].pos.y < map->height)
+                {
+                    enemies[i].pos.x += cos(enemies[i].dir);
+                    enemies[i].pos.y += sin(enemies[i].dir);
+                }
             }
 
             Sprite enemy = enemies[i];

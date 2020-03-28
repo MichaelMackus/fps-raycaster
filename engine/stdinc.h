@@ -10,6 +10,20 @@ typedef struct {
     double y;
 } Vector;
 
+// check collision (returns 1 if collision found)
+static inline int check_collision(Vector v1, Vector v2, int w1, int w2)
+{
+    if (((v1.x - w1/2.0 < v2.x - w2/2.0 && v1.x + w1/2.0 > v2.x - w2/2.0) ||
+         (v1.x - w1/2.0 < v2.x + w2/2.0 && v1.x + w1/2.0 > v2.x + w2/2.0)) &&
+        ((v1.y - w1/2.0 < v2.y - w2/2.0 && v1.y + w1/2.0 > v2.y - w2/2.0) ||
+         (v1.y - w1/2.0 < v2.y + w2/2.0 && v1.y + w1/2.0 > v2.y + w2/2.0)))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
 // rotate an angle by amount, ensuring it stays >= 0 and < 2*PI
 static inline double rotate(double angle, double amount)
 {
