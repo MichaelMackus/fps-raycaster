@@ -26,9 +26,9 @@ Sprite *sprites;
 // sort function for sorting entities by depth
 int sort_sprites(const Sprite *e1, const Sprite *e2)
 {
-    if (e1->distY > e2->distY)
+    if (e1->dist > e2->dist)
         return -1;
-    else if (e1->distY == e2->distY)
+    else if (e1->dist == e2->dist)
         return 0;
     else
         return 1;
@@ -434,19 +434,36 @@ int do_raycast(Map *map)
             else
                 sprite.side = -1; // right side
 
+            // angle of enemy from player direction
+            double angle = acos(dot_product(normPlayer, normEnemy));
+
+            // don't add sprite to screen if player cannot see it
+            if (angle > player->fov)
+                continue;
+
             // dist is euclidian distance (from player to enemy)
-            sprite.angle = acos(dot_product(normPlayer, normEnemy));
-            double dist = distance(player->pos, entity.pos);
             // distX & distY are perpendicular distance from camera in X & Y
-            sprite.distX = sin(sprite.angle) * dist;
-            sprite.distY = cos(sprite.angle) * dist;
+            double dist = distance(player->pos, entity.pos);
+            double distX = sin(angle) * dist;
+            double distY = cos(angle) * dist;
+            sprite.dist = distY;
             sprite.entity = &(map->entities[i]);
 
-            sprites[spriteCount] = sprite;
-            ++spriteCount;
+            // build sprite struct and add to sprites array to render
+            double proportion = 1 / distY;
+            if (proportion < 0) proportion = 0;
+            double spriteHeight = screenHeight * proportion;
+            double midX = screenWidth / 2;
+            double midY = screenHeight / 2;
+            double spriteX = (midX - spriteHeight/2) + sprite.side * (distX*distanceToSurface/distY);
+            double spriteY = midY - spriteHeight/2;
+            sprite.screenPos.x = (int)spriteX;
+            sprite.screenPos.y = (int)spriteY;
+            sprite.height = (int)spriteHeight;
+            sprites[spriteCount++] = sprite;
         }
 
-        // sort the enemies by distance
+        // sort the sprites by distance
         qsort(&sprites[0], spriteCount, sizeof(Sprite), (const void*) sort_sprites);
 
         draw_start(3); // layer 3 - sprites (renderer target)
@@ -454,44 +471,23 @@ int do_raycast(Map *map)
         {
             Sprite sprite = sprites[i];
 
-            // midX & midY are middle of the screen
-            double midX = screenWidth / 2;
-            double midY = screenHeight / 2;
-
-            // calculate proportional (perpendicular) distance from player to enemy
-            double proportion = 1 / sprite.distY;
-            if (proportion < 0)
-                proportion = 0;
-            double spriteHeight = screenHeight * proportion;
-
-            // https://www.reddit.com/r/gamedev/comments/4s7meq/rendering_sprites_in_a_raycaster/
-            // Generally to project a 3D point to a 2D plane you do x2d = x3d *
-            // projection_plane_distance / z3d (same for y2d and y3d). Almost
-            // everything in a raycaster boils down to that
-            //
-            double spriteX = (midX - spriteHeight/2) + sprite.side * (sprite.distX*distanceToSurface/sprite.distY);
-            double spriteY = midY - spriteHeight/2;
-
-            if (sprite.angle <= player->fov)
+            // draw texture column by column, only if z value higher than wallZ
+            int textureOffsetX = sprite.entity->texture->xOffset;
+            int textureOffsetY = sprite.entity->texture->yOffset;
+            double step = (double)sprite.height / sprite.entity->texture->width;
+            for (int x = 0; x < sprite.entity->texture->width; ++x)
             {
-                // draw texture column by column, only if z value higher than wallZ
-                int textureOffsetX = sprite.entity->texture->xOffset;
-                int textureOffsetY = sprite.entity->texture->yOffset;
-                double step = spriteHeight / sprite.entity->texture->width;
-                for (int x = 0; x < sprite.entity->texture->width; ++x)
-                {
-                    // protect drawing past screen edges
-                    int screenColumn = (int) (spriteX + x*step);
-                    if (screenColumn < 0 || screenColumn >= screenWidth) continue;
+                // protect drawing past screen edges
+                int screenColumn = (int) (sprite.screenPos.x + x*step);
+                if (screenColumn < 0 || screenColumn >= screenWidth) continue;
 
-                    // skip drawing over closer walls
-                    if (wallZ[screenColumn] <= sprite.distY) continue;
+                // skip drawing over closer walls
+                if (wallZ[screenColumn] <= sprite.dist) continue;
 
-                    // draw sprite
-                    draw_texture(sprite.entity->texture->atlas->texture,
-                            textureOffsetX + x, textureOffsetY, 1, sprite.entity->texture->height,
-                            spriteX + x*step, spriteY, ceil(step), spriteHeight);
-                }
+                // draw sprite
+                draw_texture(sprite.entity->texture->atlas->texture,
+                        textureOffsetX + x, textureOffsetY, 1, sprite.entity->texture->height,
+                        sprite.screenPos.x + x*step, sprite.screenPos.y, ceil(step), sprite.height);
             }
         }
     }

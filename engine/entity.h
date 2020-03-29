@@ -31,10 +31,10 @@ typedef struct {
 // rendering to the screen
 typedef struct {
     Entity *entity;
-    double distX; // perpendicular X distance from player
-    double distY; // perpendicular Y distance (depth) from player
-    double angle; // angle from player dir
+    Vector screenPos; // position on the screen
+    int height; // height on screen
     int side; // side of screen
+    double dist; // perpendicular distance from player
 } Sprite;
 
 #endif
