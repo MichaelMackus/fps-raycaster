@@ -360,6 +360,7 @@ int do_raycast(Map *map)
     // end draw the floor and the walls
 
     // draw enemies & objects
+    // also moves projectiles and handles simplistic enemy AI
     {
         // if player has started shooting, spawn the projectile
         if (player->shooting > 0)
@@ -461,6 +462,18 @@ int do_raycast(Map *map)
             sprite.screenPos.y = (int)spriteY;
             sprite.height = (int)spriteHeight;
             sprites[spriteCount++] = sprite;
+
+            // update enemy if can see the player (simple enemy AI)
+            double angleToPlayer = rotate(player->dir, PI);
+            if (sprite.side == 1) angleToPlayer = rotate(angleToPlayer, angle);
+            else angleToPlayer = rotate(angleToPlayer, PI*2-angle);
+            double newX = map->entities[i].pos.x + cos(angleToPlayer)/20.0;
+            double newY = map->entities[i].pos.y + sin(angleToPlayer)/20.0;
+            if (is_passable(map, (int)newX, (int)newY) && sprite.dist > 1)
+            {
+                map->entities[i].pos.x = newX;
+                map->entities[i].pos.y = newY;
+            }
         }
 
         // sort the sprites by distance
