@@ -1,4 +1,6 @@
+#include "assert.h"
 #include "map.h"
+#include "stdlib.h"
 
 Map* create_map(int width, int height)
 {
@@ -26,27 +28,24 @@ void free_map(Map *map)
         free(map->tiles);
     }
 
-    // TODO free texture
-
     free(map);
 }
 
-const Tile* get_tile(const Map *map, int x, int y)
+const Tile get_tile(const Map *map, int x, int y)
 {
-    if (x >= map->width || y >= map->height)
-        return NULL;
-    if (x < 0 || y < 0)
-        return NULL;
+    assert(is_in_bounds(map, x, y));
 
-    return &(map->tiles[y*map->width + x]);
+    return map->tiles[y*map->width + x];
 }
 
 int is_passable(const Map *map, int x, int y)
 {
-    const Tile *t = get_tile(map, x, y);
+    const Tile t = get_tile(map, x, y);
 
-    if (t == NULL)
-        return 0;
+    return t == TILE_PASSABLE;
+}
 
-    return t->type == TILE_PASSABLE;
+int is_in_bounds(const Map *map, int x, int y)
+{
+    return x < map->width && y < map->height && x >= 0 && y >= 0;
 }

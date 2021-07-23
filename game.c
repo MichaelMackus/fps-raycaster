@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "game.h"
 #include "engine/draw.h"
 #include "engine/map.h"
@@ -6,9 +7,6 @@
 #include "engine/stdinc.h"
 
 #include <stdio.h>
-
-int screenWidth;
-int screenHeight;
 
 // z-index of drawn walls
 static double* wallZ;
@@ -19,6 +17,12 @@ TextureAtlas *textureAtlas2;
 // sprites textures
 TextureAtlas *spritesAtlas;
 TextureAtlas *projectilesAtlas;
+
+// array of enemies
+Entity *enemies;
+
+// array of tiles for rendering
+SubTexture **tileTextures;
 
 // array of sprites for rendering
 Sprite *sprites;
@@ -34,6 +38,11 @@ int sort_sprites(const Sprite *e1, const Sprite *e2)
         return 1;
 }
 
+SubTexture *get_tile_texture(Map *map, int x, int y)
+{
+    return tileTextures[y*map->width + x];
+}
+
 int init_game()
 {
     Player *player = get_player();
@@ -45,6 +54,8 @@ int init_game()
 
     sprites = malloc(sizeof(Sprite) * MAX_ENTITY_COUNT);
 
+    int screenWidth;
+    int screenHeight;
     get_screen_dimensions(&screenWidth, &screenHeight);
 
     // initialize wallZ array
@@ -163,6 +174,8 @@ Map* load_map(const char *fileName)
 
     Map *map = create_map(MAP_WIDTH, MAP_HEIGHT);
     Tile *curTile = map->tiles;
+    tileTextures = malloc(sizeof(*tileTextures) * MAP_WIDTH * MAP_HEIGHT);
+    SubTexture **curTileTexture = tileTextures;
     char line[MAP_WIDTH];
 
     for (int bytesRead = 0; bytesRead < MAP_WIDTH*MAP_HEIGHT;)
@@ -188,31 +201,34 @@ Map* load_map(const char *fileName)
             switch (line[i]) {
                 // wall tile
                 case '#':
-                    curTile->type = TILE_SOLID;
-                    curTile->texture = textureAtlas->subtextures[3];
+                    *curTile = TILE_SOLID;
+                    *curTileTexture = textureAtlas->subtextures[3];
                     break;
 
                 // flag tile
                 case '&':
-                    curTile->type = TILE_SOLID;
-                    curTile->texture = textureAtlas->subtextures[0];
+                    *curTile = TILE_SOLID;
+                    *curTileTexture = textureAtlas->subtextures[0];
                     break;
 
                 // floor tile
                 default:
-                    curTile->type = TILE_PASSABLE;
-                    curTile->texture = textureAtlas->subtextures[6];
+                    *curTile = TILE_PASSABLE;
+                    *curTileTexture = textureAtlas->subtextures[6];
             }
 
             curTile ++;
+            curTileTexture ++;
             bytesRead ++;
             j ++;
         }
     }
 
+    assert(tileTextures[18*MAP_WIDTH + 18] != NULL);
+
     // load enemies
     {
-        Entity *enemies = malloc(sizeof(*enemies) * MAX_ENTITY_COUNT);
+        enemies = malloc(sizeof(*enemies) * MAX_ENTITY_COUNT);
 
         if (enemies == NULL)
             return map;
@@ -230,8 +246,6 @@ Map* load_map(const char *fileName)
         enemies[2] = (Entity) { spritesAtlas->subtextures[11], ENTITY_ENEMY, { 6, 17 }, 0, 100 };
         enemies[3] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 6, 6 }, 0, 100 };
         enemies[4] = (Entity) { spritesAtlas->subtextures[15], ENTITY_ENEMY, { 9, 2 }, 0, 100 };
-
-        map->entities = enemies;
     }
 
     return map;
@@ -240,6 +254,10 @@ Map* load_map(const char *fileName)
 int do_raycast(Map *map)
 {
     Player *player = get_player();
+
+    int screenWidth;
+    int screenHeight;
+    get_screen_dimensions(&screenWidth, &screenHeight);
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
@@ -266,10 +284,10 @@ int do_raycast(Map *map)
 
             for (int x = 0; x < screenWidth; x++)
             {
-                // get the floor tile
-                const Tile *tile = get_tile(map, (int)(ray.x), (int)(ray.y));
-                if (tile == NULL ||
-                    tile->type != TILE_PASSABLE) // cheap trick to ensure we don't draw walls as floor
+                SubTexture *tileTex = get_tile_texture(map, (int)(ray.x), (int)(ray.y));
+
+                // cheap trick to ensure we don't draw walls as floor
+                if (!is_in_bounds(map, (int) ray.x, (int) ray.y) || !is_passable(map, (int) ray.x, (int) ray.y) || tileTex == NULL)
                 {
                     ray.x += interval.x;
                     ray.y += interval.y;
@@ -278,19 +296,20 @@ int do_raycast(Map *map)
                 }
 
                 // get colors from tile's subtexture
-                Color *colors = tile->texture->pixels;
+                Color *colors = tileTex->pixels;
+                assert(colors != NULL);
 
                 // get the texture coordinate from the fractional part
                 // TODO shouldn't need abs, but floorPos going negative
-                int tx = (int)abs(tile->texture->width * (ray.x - (int)ray.x));
-                int ty = (int)abs(tile->texture->height * (ray.y - (int)ray.y));
+                int tx = (int)abs(tileTex->width * (ray.x - (int)ray.x));
+                int ty = (int)abs(tileTex->height * (ray.y - (int)ray.y));
 
                 ray.x += interval.x;
                 ray.y += interval.y;
 
                 // TODO will this work with all source pixel formats?
                 const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
-                const unsigned int textureOffset = tile->texture->atlas->width * ty + tx;
+                const unsigned int textureOffset = tileTex->atlas->width * ty + tx;
                 pixels[offset] = (0x3F << 24) |
                     (colors[textureOffset].r << 16) |
                     (colors[textureOffset].g << 8) |
@@ -328,18 +347,14 @@ int do_raycast(Map *map)
 
             // get the texture from the map tile
             Vector tilePos = ray.tilePos;
-            const Tile *t = get_tile(map, tilePos.x, tilePos.y);
-
-            if (t == NULL)
-            {
-#ifdef GAME_DEBUG
-                printf("Error - wall tile is null\n");
-#endif
-                return 0;
-            }
+            assert(is_in_bounds(map, (int) tilePos.x, (int) tilePos.y));
+            SubTexture *tileTex = get_tile_texture(map, (int)(tilePos.x), (int)(tilePos.y));
+            assert(tileTex != NULL);
+            Color *colors = tileTex->pixels;
+            assert(colors != NULL);
 
             // offset from within texture (we're only rendering 1 slice of the wall)
-            int textureX = wallX * t->texture->width;
+            int textureX = wallX * tileTex->width;
 
             // draw walls on layer 2 (above floor/ceiling)
             draw_start(3);
@@ -353,7 +368,7 @@ int do_raycast(Map *map)
 
             // draw texture
             draw_texture(texture,
-                    t->texture->xOffset + textureX, t->texture->yOffset, 1, t->texture->height,
+                    tileTex->xOffset + textureX, tileTex->yOffset, 1, tileTex->height,
                     x, y, 1, wallHeight);
         }
     }
@@ -368,9 +383,9 @@ int do_raycast(Map *map)
             // find a spot for the new projectile entity
             for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
             {
-                if (map->entities[i].health <= 0)
+                if (enemies[i].health <= 0)
                 {
-                    map->entities[i] =
+                    enemies[i] =
                         (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir, 100 };
                     break;
                 }
@@ -386,41 +401,41 @@ int do_raycast(Map *map)
         int spriteCount = 0;
         for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
         {
-            if (map->entities[i].health <= 0)
+            if (enemies[i].health <= 0)
                 // this entity is dead (or does not exist)
                 continue;
 
             // if this is a projectile, move it forward & perform collision detection
-            if (map->entities[i].type == ENTITY_PROJECTILE)
+            if (enemies[i].type == ENTITY_PROJECTILE)
             {
                 // look for an enemy in this position
                 for (int j = 0; j < MAX_ENTITY_COUNT; ++j)
                 {
-                    if (map->entities[j].type == ENTITY_ENEMY &&
-                        map->entities[j].health > 0 &&
-                        check_collision(map->entities[i].pos, map->entities[j].pos, 1, 1))
+                    if (enemies[j].type == ENTITY_ENEMY &&
+                        enemies[j].health > 0 &&
+                        check_collision(enemies[i].pos, enemies[j].pos, 1, 1))
                     {
                         // collision found - hurt enemy & destroy projectile
-                        map->entities[j].health -= 50;
-                        map->entities[i].health = 0;
+                        enemies[j].health -= 50;
+                        enemies[i].health = 0;
                     }
                 }
                 // move projectile
-                if (map->entities[i].pos.x > 0 && map->entities[i].pos.y > 0 &&
-                    map->entities[i].pos.x < map->width && map->entities[i].pos.y < map->height)
+                if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 &&
+                    enemies[i].pos.x < map->width && enemies[i].pos.y < map->height)
                 {
-                    map->entities[i].pos.x += cos(map->entities[i].dir);
-                    map->entities[i].pos.y += sin(map->entities[i].dir);
+                    enemies[i].pos.x += cos(enemies[i].dir);
+                    enemies[i].pos.y += sin(enemies[i].dir);
                 }
                 else
                 {
                     // out of bounds, destroy projectile
-                    map->entities[i].health = 0;
+                    enemies[i].health = 0;
                     continue;
                 }
             }
 
-            Entity entity = map->entities[i];
+            Entity entity = enemies[i];
             Sprite sprite;
 
             // calculate angle to enemy using dot product
@@ -448,7 +463,7 @@ int do_raycast(Map *map)
             double distX = sin(angle) * dist;
             double distY = cos(angle) * dist;
             sprite.dist = distY;
-            sprite.entity = &(map->entities[i]);
+            sprite.entity = &(enemies[i]);
 
             // build sprite struct and add to sprites array to render
             double proportion = 1 / distY;
@@ -467,12 +482,12 @@ int do_raycast(Map *map)
             double angleToPlayer = rotate(player->dir, PI);
             if (sprite.side == 1) angleToPlayer = rotate(angleToPlayer, angle);
             else angleToPlayer = rotate(angleToPlayer, PI*2-angle);
-            double newX = map->entities[i].pos.x + cos(angleToPlayer)/20.0;
-            double newY = map->entities[i].pos.y + sin(angleToPlayer)/20.0;
-            if (is_passable(map, (int)newX, (int)newY) && sprite.dist > 1)
+            double newX = enemies[i].pos.x + cos(angleToPlayer)/20.0;
+            double newY = enemies[i].pos.y + sin(angleToPlayer)/20.0;
+            if (is_in_bounds(map, (int)newX, (int)newY) && is_passable(map, (int)newX, (int)newY) && sprite.dist > 1)
             {
-                map->entities[i].pos.x = newX;
-                map->entities[i].pos.y = newY;
+                enemies[i].pos.x = newX;
+                enemies[i].pos.y = newY;
             }
         }
 
