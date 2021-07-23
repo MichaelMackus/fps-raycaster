@@ -28,11 +28,14 @@ typedef struct {
 // do the raycast for the column & return proportional distance to wall
 Ray raycast(const Map *map, int x);
 
-// do a floorcast for the first column of the row
-Vector floorcast(const Map *map, int y);
+typedef struct {
+    Vector tilePos;
+    double distance; // proportional distance to object
+    double xOffset; // x-offset *within* the tile that the ray hit
+    double yOffset; // y-offset *within* the tile that the ray hit
+} FloorRay;
 
-// get a vector that represents the interval to add to the floorcast for
-// each step of x column (this avoids costly trig during looping)
-Vector floorcast_get_interval(const Map *map, int y);
+// do a floorcast for the first column of the row
+FloorRay floorcast(const Map *map, int y);
 
 #endif

@@ -279,18 +279,17 @@ int do_raycast(Map *map)
         // draw floor scanlines
         for (int y = 0; y < screenHeight/2; y++)
         {
-            Vector ray = floorcast(map, y);
-            Vector interval = floorcast_get_interval(map, y);
+            FloorRay ray = floorcast(map, y);
 
             for (int x = 0; x < screenWidth; x++)
             {
-                SubTexture *tileTex = get_tile_texture(map, (int)(ray.x), (int)(ray.y));
+                SubTexture *tileTex = get_tile_texture(map, (int)(ray.tilePos.x), (int)(ray.tilePos.y));
 
                 // cheap trick to ensure we don't draw walls as floor
-                if (!is_in_bounds(map, (int) ray.x, (int) ray.y) || !is_passable(map, (int) ray.x, (int) ray.y) || tileTex == NULL)
+                if (!is_in_bounds(map, (int) ray.tilePos.x, (int) ray.tilePos.y) || !is_passable(map, (int) ray.tilePos.x, (int) ray.tilePos.y) || tileTex == NULL)
                 {
-                    ray.x += interval.x;
-                    ray.y += interval.y;
+                    ray.tilePos.x += ray.xOffset;
+                    ray.tilePos.y += ray.yOffset;
 
                     continue;
                 }
@@ -301,11 +300,11 @@ int do_raycast(Map *map)
 
                 // get the texture coordinate from the fractional part
                 // TODO shouldn't need abs, but floorPos going negative
-                int tx = (int)abs(tileTex->width * (ray.x - (int)ray.x));
-                int ty = (int)abs(tileTex->height * (ray.y - (int)ray.y));
+                int tx = (int)abs(tileTex->width * (ray.tilePos.x - (int)ray.tilePos.x));
+                int ty = (int)abs(tileTex->height * (ray.tilePos.y - (int)ray.tilePos.y));
 
-                ray.x += interval.x;
-                ray.y += interval.y;
+                ray.tilePos.x += ray.xOffset;
+                ray.tilePos.y += ray.yOffset;
 
                 // TODO will this work with all source pixel formats?
                 const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
