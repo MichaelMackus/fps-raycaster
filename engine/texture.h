@@ -1,7 +1,16 @@
 #ifndef ENGINE_TEXTURE_H
 #define ENGINE_TEXTURE_H
 
-#include "draw.h"
+#include "SDL.h"
+#include "SDL_image.h"
+
+// for color manipulation functions
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} Color;
 
 typedef struct {
     int width;
@@ -38,5 +47,10 @@ void free_subtexture(SubTexture *texture);
 // insert subtexture into the atlas
 // returns index of inserted subtexture, or -1 on failure
 int insert_subtexture(TextureAtlas *atlas, SubTexture *subtexture);
+
+// update RGBA color values for surface
+// NOTE: colors array should be allocated with size of surface->w * surface->h
+// FIXME likely only works with surfaces with alpha component & 8 bits wide
+int update_colors(Color *colors, const SDL_Surface *surface);
 
 #endif

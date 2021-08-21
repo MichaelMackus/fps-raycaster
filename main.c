@@ -1,14 +1,15 @@
-#include "engine/draw.h"
 #include "engine/raycast.h"
 #include "engine/entity.h"
 #include "game.h"
 #include "input.h"
+#include "pixelgfx/gfx.h"
+#include "pixelgfx/sdl.h"
 
 #include "SDL.h"
 #include "SDL_image.h"
 #include <stdlib.h>
 
-#define MAX_FPS 30
+#define MAX_FPS 999
 
 int flag_exists(const char *flag, int argc, char **argv)
 {
@@ -31,22 +32,20 @@ int main(int argc, char **argv)
     }
 
     // default width & height
-    int width = 800;
-    int height = 600;
+    int width = 1920, height = 1080;
+    int displayW = width, displayH = height;
     int flags = 0;
 
     SDL_DisplayMode display;
     if (!(flag_exists("-w", argc, argv) || flag_exists("--windowed", argc, argv)) &&
             SDL_GetCurrentDisplayMode(0, &display) == 0)
     {
-        width = display.w;
-        height = display.h;
+        displayW = display.w;
+        displayH = display.h;
         flags = SDL_WINDOW_FULLSCREEN;
     }
 
-    SDL_Window *win = SDL_CreateWindow("Raycasting Demo",
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            width, height, flags);
+    SDL_Window *win = pixel_sdl_new_window("Raycasting Demo", displayW, displayH, flags);
 
     if (win == NULL)
     {
@@ -62,35 +61,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // initialize opengl buffer
+    char *buffer = pixel_gfx_init(width, height, GL_RGBA);
+    memset(buffer, 0, height * width * 4);
+
     // capture mouse within SDL window
     SDL_SetRelativeMouseMode(SDL_TRUE);
-
-    // some useful flags SDL_RENDERER_SOFTWARE or SDL_RENDERER_ACCELERATED
-    // NOTE: looks like accelerated is inferred by default
-    SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, 0);
-
-    if (renderer == NULL)
-    {
-        printf("Error creating renderer\n");
-
-        return 1;
-    }
-
-    // turn on alpha blending
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-    // initialize our drawing
-    if (draw_init(win, renderer) != 0)
-    {
-        printf("Error initializing\n");
-
-        return 1;
-    }
 
     unsigned int lastTime;
     lastTime = SDL_GetTicks();
 
-    if (init_game() == 1 || init_raycast() == 1)
+        printf("%d\n", win);
+
+    if (init_game(width, height) == 1 || init_raycast(width, height) == 1)
     {
         printf("Error initializing game.\n");
 
@@ -104,7 +87,11 @@ int main(int argc, char **argv)
     while (handle_input(map))
     {
         // update screen data
-        if (!do_raycast(map)) break;
+        if (!do_raycast(map, width, height, buffer)) break;
+
+        // draw buffer
+        pixel_gfx_update(buffer, 0, 0, 0, 255);
+        pixel_sdl_render(win);
 
         // calculate FPS
         unsigned int time = SDL_GetTicks();
@@ -123,7 +110,7 @@ int main(int argc, char **argv)
             char title[100];
             Player *player = get_player();
             sprintf(title, "Raycasting Demo (FPS: %f, Pos: (%f, %f), Angle: %f)", fps, player->pos.x, player->pos.y, to_degrees(player->dir));
-            printf("FPS: %f, Pos: (%f, %f), Angle: %f\n", fps, player->pos.x, player->pos.y, to_degrees(player->dir));
+            printf("%s\n", title);
             SDL_SetWindowTitle(win, title);
         }
 
@@ -132,12 +119,10 @@ int main(int argc, char **argv)
     }
 
     destroy_raycast();
-    draw_free();
 
     IMG_Quit();
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(win);
-    SDL_Quit();
+    pixel_sdl_end(win);
+    pixel_gfx_end(buffer);
 
     return 0;
 }

@@ -14,6 +14,6 @@ int init_game();
 Map* load_map(const char *fileName);
 
 // do raycasting & draw
-int do_raycast(Map *map);
+int do_raycast(Map *map, int screenWidth, int screenHeight, char *buffer);
 
 #endif

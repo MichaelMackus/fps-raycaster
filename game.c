@@ -1,6 +1,5 @@
 #include "assert.h"
 #include "game.h"
-#include "engine/draw.h"
 #include "engine/map.h"
 #include "engine/entity.h"
 #include "engine/raycast.h"
@@ -8,8 +7,19 @@
 
 #include <stdio.h>
 
-// z-index of drawn walls
-static double* wallZ;
+typedef struct WallSlize {
+    int startY;
+    int maxY;
+    double wallHeight;
+    double tstep;
+    int textureX;
+    double textureY;
+    Ray ray;
+    SubTexture *tileTex;
+} WallSlice;
+
+// rays to the drawn walls
+static WallSlice* wallRays;
 
 // multiple different texture atlas for pre-rendered shading of map textures
 TextureAtlas *textureAtlas;
@@ -43,7 +53,7 @@ SubTexture *get_tile_texture(Map *map, int x, int y)
     return tileTextures[y*map->width + x];
 }
 
-int init_game()
+int init_game(int screenWidth, int screenHeight)
 {
     Player *player = get_player();
     player->pos.x = 9.5;
@@ -54,14 +64,10 @@ int init_game()
 
     sprites = malloc(sizeof(Sprite) * MAX_ENTITY_COUNT);
 
-    int screenWidth;
-    int screenHeight;
-    get_screen_dimensions(&screenWidth, &screenHeight);
+    // initialize wallRays array
+    wallRays = malloc(sizeof(*wallRays) * screenWidth);
 
-    // initialize wallZ array
-    wallZ = malloc(sizeof(*wallZ) * screenWidth);
-
-    if (wallZ == NULL)
+    if (wallRays == NULL)
         return 1;
 
 
@@ -70,8 +76,8 @@ int init_game()
         textureAtlas = create_atlas("wolftextures.png");
         textureAtlas2 = create_atlas("wolftextures.png");
 
-        SDL_SetTextureColorMod(textureAtlas->texture, 125, 125, 125);
-        SDL_SetTextureColorMod(textureAtlas2->texture, 210, 210, 210);
+        /* SDL_SetTextureColorMod(textureAtlas->texture, 125, 125, 125); */ //TODO ??
+        /* SDL_SetTextureColorMod(textureAtlas2->texture, 210, 210, 210); */
 
         if (textureAtlas == NULL)
             return 1;
@@ -105,15 +111,6 @@ int init_game()
         if (update_colors(spritesAtlas->pixels, spritesAtlas->surface) != 0)
             return 1;
 
-        SDL_Texture *spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), spritesAtlas->surface);
-        SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
-
-        if (spritesTexture == NULL)
-            return 1;
-
-        SDL_DestroyTexture(spritesAtlas->texture);
-        spritesAtlas->texture = spritesTexture;
-
         if (populate_atlas(spritesAtlas, 61, 61) == 0)
             return 1;
     }
@@ -146,15 +143,6 @@ int init_game()
 
         if (update_colors(projectilesAtlas->pixels, projectilesAtlas->surface) != 0)
             return 1;
-
-        SDL_Texture *spritesTexture = SDL_CreateTextureFromSurface(get_renderer(), projectilesAtlas->surface);
-        SDL_SetTextureBlendMode(spritesTexture, SDL_BLENDMODE_BLEND);
-
-        if (spritesTexture == NULL)
-            return 1;
-
-        SDL_DestroyTexture(projectilesAtlas->texture);
-        projectilesAtlas->texture = spritesTexture;
 
         if (populate_atlas(projectilesAtlas, 140, 140) == 0)
             return 1;
@@ -251,277 +239,268 @@ Map* load_map(const char *fileName)
     return map;
 }
 
-int do_raycast(Map *map)
+int do_raycast(Map *map, int screenWidth, int screenHeight, char *buffer)
 {
     Player *player = get_player();
-
-    int screenWidth;
-    int screenHeight;
-    get_screen_dimensions(&screenWidth, &screenHeight);
 
     // calculate distance from player to screen - this will be screenWidth/2 for 90 degree FOV
     double distanceToSurface = (screenWidth/2.0) / tan(player->fov/2);
 
-    draw_init_layer(1, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1);
-    draw_init_layer(2, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
-    draw_init_layer(3, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 1);
-
     // draw the floor and the walls
     {
-        // detect which squares the player can see, and draw them proportionally to distance
-        // get texture & lock for streaming
-        SDL_Texture *streamTexture = get_texture(1);
-        Uint32 *pixels;
-        int pitch;
-        SDL_LockTexture(streamTexture, NULL, (void**) &pixels, &pitch);
-        memset(pixels, 0, pitch * screenHeight); // clear streaming target
-
-        // draw floor scanlines
-        for (int y = 0; y < screenHeight/2; y++)
-        {
-            FloorRay ray = floorcast(map, y);
-
-            for (int x = 0; x < screenWidth; x++)
-            {
-                SubTexture *tileTex = get_tile_texture(map, (int)(ray.tilePos.x), (int)(ray.tilePos.y));
-
-                // cheap trick to ensure we don't draw walls as floor
-                if (!is_in_bounds(map, (int) ray.tilePos.x, (int) ray.tilePos.y) || !is_passable(map, (int) ray.tilePos.x, (int) ray.tilePos.y) || tileTex == NULL)
-                {
-                    ray.tilePos.x += ray.xOffset;
-                    ray.tilePos.y += ray.yOffset;
-
-                    continue;
-                }
-
-                // get colors from tile's subtexture
-                Color *colors = tileTex->pixels;
-                assert(colors != NULL);
-
-                // get the texture coordinate from the fractional part
-                // TODO shouldn't need abs, but floorPos going negative
-                int tx = (int)abs(tileTex->width * (ray.tilePos.x - (int)ray.tilePos.x));
-                int ty = (int)abs(tileTex->height * (ray.tilePos.y - (int)ray.tilePos.y));
-
-                ray.tilePos.x += ray.xOffset;
-                ray.tilePos.y += ray.yOffset;
-
-                // TODO will this work with all source pixel formats?
-                const unsigned int offset = (pitch/sizeof(Uint32))*y + x;
-                const unsigned int textureOffset = tileTex->atlas->width * ty + tx;
-                pixels[offset] = (0x3F << 24) |
-                    (colors[textureOffset].r << 16) |
-                    (colors[textureOffset].g << 8) |
-                    (colors[textureOffset].b);
-
-                const unsigned int floorOffset = (pitch/sizeof(Uint32))*(screenHeight - y -1) + x;
-                pixels[floorOffset] = (0xCF << 24) |
-                    (colors[textureOffset].r << 16) |
-                    (colors[textureOffset].g << 8) |
-                    (colors[textureOffset].b);
-            }
-        }
-
-        SDL_UnlockTexture(streamTexture);
-
-        // draw walls
+        // calculate rays to the walls
         for (int x = 0; x < screenWidth; ++x)
         {
             Ray ray = raycast(map, x);
             Vector rayPos = ray.rayPos;
 
-            double propDist = ray.distance;
-            wallZ[x] = propDist;
-
             // calculate wall proportion percentage
+            double propDist = ray.distance;
+            if (propDist < 0)
+                propDist = -1 * propDist;
             double proportion = 1 / propDist;
-            if (proportion < 0)
-                proportion = 0;
 
-            // calculate wall height & ypos
-            double wallHeight = screenHeight * proportion;
-            double y = (screenHeight - wallHeight) / 2;
-
-            double wallX = ray.xOffset;
-
-            // get the texture from the map tile
-            Vector tilePos = ray.tilePos;
+            // populate wall slice for rendering
+            WallSlice wall;
+            wall.wallHeight = screenHeight * proportion;
+            double y = (screenHeight - wall.wallHeight) / 2;
+            wall.maxY = (int)y + (int)wall.wallHeight;
+            wall.startY = (int) y;
+            wall.ray = ray;
+            Vector tilePos = wall.ray.tilePos;
             assert(is_in_bounds(map, (int) tilePos.x, (int) tilePos.y));
-            SubTexture *tileTex = get_tile_texture(map, (int)(tilePos.x), (int)(tilePos.y));
-            assert(tileTex != NULL);
-            Color *colors = tileTex->pixels;
-            assert(colors != NULL);
+            wall.tileTex = get_tile_texture(map, (int)(tilePos.x), (int)(tilePos.y));
+            assert(wall.tileTex != NULL);
+            assert(wall.tileTex->pixels != NULL);
+            // offset from within texture (we're only rendering 1 wall of the wall)
+            wall.tstep = (double)wall.tileTex->height / (double)wall.wallHeight;
+            wall.textureX = ray.xOffset * (double)wall.tileTex->width;
+            wall.textureY = 0;
+            if (wall.startY < 0) {
+                wall.textureY = (wall.tstep * (double)wall.startY * -1.0f);
+            }
 
-            // offset from within texture (we're only rendering 1 slice of the wall)
-            int textureX = wallX * tileTex->width;
+            wallRays[x] = wall;
+        }
 
-            // draw walls on layer 2 (above floor/ceiling)
-            draw_start(3);
+        // drawing code & floor/ceiling raycasting
+        for (int y = 0; y < screenHeight; y++)
+        {
+            // TODO *floor* not in bounds of map
+            FloorRay ray = floorcast(map, y);
 
-            // add simple lighting to add definition for cube edges
-            SDL_Texture *texture;
-            if (ray.side == WALL_SOUTH || ray.side == WALL_NORTH)
-                texture = textureAtlas->texture;
-            else
-                texture = textureAtlas2->texture;
+            unsigned int offset = screenWidth*y*4;
+            for (int x = 0; x < screenWidth; x++)
+            {
+                WallSlice wall = wallRays[x];
 
-            // draw texture
-            draw_texture(texture,
-                    tileTex->xOffset + textureX, tileTex->yOffset, 1, tileTex->height,
-                    x, y, 1, wallHeight);
+                // ensure ceiling is in map bounds & not drawing a wall
+                if (y < wall.startY && is_in_bounds(map, (int) ray.tilePos.x, (int) ray.tilePos.y)) {
+                    // TODO improve floorcasting performance
+                    // get colors from tile's subtexture
+                    SubTexture *tileTex = get_tile_texture(map, (int)(ray.tilePos.x), (int)(ray.tilePos.y));
+                    assert(tileTex != NULL);
+                    Color *colors = tileTex->pixels;
+                    assert(colors != NULL);
+
+                    // get the texture coordinate from the fractional part
+                    // TODO shouldn't need abs, but floorPos going negative
+                    int tx = (int)abs(tileTex->width * (ray.tilePos.x - (int)ray.tilePos.x));
+                    int ty = (int)abs(tileTex->height * (ray.tilePos.y - (int)ray.tilePos.y));
+
+                    const unsigned int textureOffset = tileTex->atlas->width * ty + tx;
+                    buffer[offset + 0] = colors[textureOffset].r;
+                    buffer[offset + 1] = colors[textureOffset].g;
+                    buffer[offset + 2] = colors[textureOffset].b;
+                    buffer[offset + 3] = 0x5F; // alpha
+
+                    const unsigned int floorOffset = (screenHeight - y - 1) * screenWidth*4 + x*4;
+                    buffer[floorOffset + 0] = colors[textureOffset].r;
+                    buffer[floorOffset + 1] = colors[textureOffset].g;
+                    buffer[floorOffset + 2] = colors[textureOffset].b;
+                    buffer[floorOffset + 3] = 0xAF; // alpha
+                }
+
+                ray.tilePos.x += ray.xOffset;
+                ray.tilePos.y += ray.yOffset;
+
+                {
+                    // get the texture from the map tile
+
+                    /* double tstep = (double) tileTex->height / (double) wallHeight; // texture step from y-offset for each vertical screen pixel */
+                    if (y >= wall.startY && y < wall.maxY) {
+                        assert(wall.tileTex != NULL);
+                        Color *colors = wall.tileTex->pixels;
+                        assert(colors != NULL);
+
+                        int textureOffset = (int)wall.textureX + (int)wall.textureY*wall.tileTex->atlas->width;
+                        buffer[offset + 0] = colors[textureOffset].r;
+                        buffer[offset + 1] = colors[textureOffset].g;
+                        buffer[offset + 2] = colors[textureOffset].b;
+                        // add simple lighting to add definition for cube edges
+                        if (wall.ray.side == WALL_SOUTH || wall.ray.side == WALL_NORTH)
+                            buffer[offset + 3] = colors[textureOffset].a; // alpha
+                        else
+                            buffer[offset + 3] = colors[textureOffset].a * 0.7; // alpha
+                        wallRays[x].textureY += wall.tstep;
+                    }
+                }
+
+                offset += 4;
+            }
         }
     }
     // end draw the floor and the walls
 
     // draw enemies & objects
     // also moves projectiles and handles simplistic enemy AI
-    {
-        // if player has started shooting, spawn the projectile
-        if (player->shooting > 0)
-        {
-            // find a spot for the new projectile entity
-            for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
-            {
-                if (enemies[i].health <= 0)
-                {
-                    enemies[i] =
-                        (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir, 100 };
-                    break;
-                }
-            }
-            // stop shooting (with a delay of 10 frames)
-            player->shooting = -10;
-        }
-        // still recovering from recent shot
-        else if (player->shooting < 0)
-            ++player->shooting;
+    /* { */
+    /*     // if player has started shooting, spawn the projectile */
+    /*     if (player->shooting > 0) */
+    /*     { */
+    /*         // find a spot for the new projectile entity */
+    /*         for (int i = 0; i < MAX_ENTITY_COUNT; ++i) */
+    /*         { */
+    /*             if (enemies[i].health <= 0) */
+    /*             { */
+    /*                 enemies[i] = */
+    /*                     (Entity) { projectilesAtlas->subtextures[0], ENTITY_PROJECTILE, player->pos, player->dir, 100 }; */
+    /*                 break; */
+    /*             } */
+    /*         } */
+    /*         // stop shooting (with a delay of 10 frames) */
+    /*         player->shooting = -10; */
+    /*     } */
+    /*     // still recovering from recent shot */
+    /*     else if (player->shooting < 0) */
+    /*         ++player->shooting; */
 
-        // setup enemy distance & angle for sorting
-        int spriteCount = 0;
-        for (int i = 0; i < MAX_ENTITY_COUNT; ++i)
-        {
-            if (enemies[i].health <= 0)
-                // this entity is dead (or does not exist)
-                continue;
+    /*     // setup enemy distance & angle for sorting */
+    /*     int spriteCount = 0; */
+    /*     for (int i = 0; i < MAX_ENTITY_COUNT; ++i) */
+    /*     { */
+    /*         if (enemies[i].health <= 0) */
+    /*             // this entity is dead (or does not exist) */
+    /*             continue; */
 
-            // if this is a projectile, move it forward & perform collision detection
-            if (enemies[i].type == ENTITY_PROJECTILE)
-            {
-                // look for an enemy in this position
-                for (int j = 0; j < MAX_ENTITY_COUNT; ++j)
-                {
-                    if (enemies[j].type == ENTITY_ENEMY &&
-                        enemies[j].health > 0 &&
-                        check_collision(enemies[i].pos, enemies[j].pos, 1, 1))
-                    {
-                        // collision found - hurt enemy & destroy projectile
-                        enemies[j].health -= 50;
-                        enemies[i].health = 0;
-                    }
-                }
-                // move projectile
-                if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 &&
-                    enemies[i].pos.x < map->width && enemies[i].pos.y < map->height)
-                {
-                    enemies[i].pos.x += cos(enemies[i].dir);
-                    enemies[i].pos.y += sin(enemies[i].dir);
-                }
-                else
-                {
-                    // out of bounds, destroy projectile
-                    enemies[i].health = 0;
-                    continue;
-                }
-            }
+    /*         // if this is a projectile, move it forward & perform collision detection */
+    /*         if (enemies[i].type == ENTITY_PROJECTILE) */
+    /*         { */
+    /*             // look for an enemy in this position */
+    /*             for (int j = 0; j < MAX_ENTITY_COUNT; ++j) */
+    /*             { */
+    /*                 if (enemies[j].type == ENTITY_ENEMY && */
+    /*                     enemies[j].health > 0 && */
+    /*                     check_collision(enemies[i].pos, enemies[j].pos, 1, 1)) */
+    /*                 { */
+    /*                     // collision found - hurt enemy & destroy projectile */
+    /*                     enemies[j].health -= 50; */
+    /*                     enemies[i].health = 0; */
+    /*                 } */
+    /*             } */
+    /*             // move projectile */
+    /*             if (enemies[i].pos.x > 0 && enemies[i].pos.y > 0 && */
+    /*                 enemies[i].pos.x < map->width && enemies[i].pos.y < map->height) */
+    /*             { */
+    /*                 enemies[i].pos.x += cos(enemies[i].dir); */
+    /*                 enemies[i].pos.y += sin(enemies[i].dir); */
+    /*             } */
+    /*             else */
+    /*             { */
+    /*                 // out of bounds, destroy projectile */
+    /*                 enemies[i].health = 0; */
+    /*                 continue; */
+    /*             } */
+    /*         } */
 
-            Entity entity = enemies[i];
-            Sprite sprite;
+    /*         Entity entity = enemies[i]; */
+    /*         Sprite sprite; */
 
-            // calculate angle to enemy using dot product
-            Vector normPlayer = (Vector) { cos(player->dir), sin(player->dir) };
-            Vector venemy = (Vector) { entity.pos.x - player->pos.x, entity.pos.y - player->pos.y };
-            Vector normEnemy = normalize(venemy);
+    /*         // calculate angle to enemy using dot product */
+    /*         Vector normPlayer = (Vector) { cos(player->dir), sin(player->dir) }; */
+    /*         Vector venemy = (Vector) { entity.pos.x - player->pos.x, entity.pos.y - player->pos.y }; */
+    /*         Vector normEnemy = normalize(venemy); */
 
-            // *cross* product to calculate which side of player
-            double product = -1*normPlayer.y*normEnemy.x + normPlayer.x*normEnemy.y;
-            if (product > 0)
-                sprite.side = 1; // right side
-            else
-                sprite.side = -1; // right side
+    /*         // *cross* product to calculate which side of player */
+    /*         double product = -1*normPlayer.y*normEnemy.x + normPlayer.x*normEnemy.y; */
+    /*         if (product > 0) */
+    /*             sprite.side = 1; // right side */
+    /*         else */
+    /*             sprite.side = -1; // right side */
 
-            // angle of enemy from player direction
-            double angle = acos(dot_product(normPlayer, normEnemy));
+    /*         // angle of enemy from player direction */
+    /*         double angle = acos(dot_product(normPlayer, normEnemy)); */
 
-            // don't add sprite to screen if player cannot see it
-            if (angle > player->fov)
-                continue;
+    /*         // don't add sprite to screen if player cannot see it */
+    /*         if (angle > player->fov) */
+    /*             continue; */
 
-            // dist is euclidian distance (from player to enemy)
-            // distX & distY are perpendicular distance from camera in X & Y
-            double dist = distance(player->pos, entity.pos);
-            double distX = sin(angle) * dist;
-            double distY = cos(angle) * dist;
-            sprite.dist = distY;
-            sprite.entity = &(enemies[i]);
+    /*         // dist is euclidian distance (from player to enemy) */
+    /*         // distX & distY are perpendicular distance from camera in X & Y */
+    /*         double dist = distance(player->pos, entity.pos); */
+    /*         double distX = sin(angle) * dist; */
+    /*         double distY = cos(angle) * dist; */
+    /*         sprite.dist = distY; */
+    /*         sprite.entity = &(enemies[i]); */
 
-            // build sprite struct and add to sprites array to render
-            double proportion = 1 / distY;
-            if (proportion < 0) proportion = 0;
-            double spriteHeight = screenHeight * proportion;
-            double midX = screenWidth / 2;
-            double midY = screenHeight / 2;
-            double spriteX = (midX - spriteHeight/2) + sprite.side * (distX*distanceToSurface/distY);
-            double spriteY = midY - spriteHeight/2;
-            sprite.screenPos.x = (int)spriteX;
-            sprite.screenPos.y = (int)spriteY;
-            sprite.height = (int)spriteHeight;
-            sprites[spriteCount++] = sprite;
+    /*         // build sprite struct and add to sprites array to render */
+    /*         double proportion = 1 / distY; */
+    /*         if (proportion < 0) proportion = 0; */
+    /*         double spriteHeight = screenHeight * proportion; */
+    /*         double midX = screenWidth / 2; */
+    /*         double midY = screenHeight / 2; */
+    /*         double spriteX = (midX - spriteHeight/2) + sprite.side * (distX*distanceToSurface/distY); */
+    /*         double spriteY = midY - spriteHeight/2; */
+    /*         sprite.screenPos.x = (int)spriteX; */
+    /*         sprite.screenPos.y = (int)spriteY; */
+    /*         sprite.height = (int)spriteHeight; */
+    /*         sprites[spriteCount++] = sprite; */
 
-            // update enemy if can see the player (simple enemy AI)
-            double angleToPlayer = rotate(player->dir, PI);
-            if (sprite.side == 1) angleToPlayer = rotate(angleToPlayer, angle);
-            else angleToPlayer = rotate(angleToPlayer, PI*2-angle);
-            double newX = enemies[i].pos.x + cos(angleToPlayer)/20.0;
-            double newY = enemies[i].pos.y + sin(angleToPlayer)/20.0;
-            if (is_in_bounds(map, (int)newX, (int)newY) && is_passable(map, (int)newX, (int)newY) && sprite.dist > 1)
-            {
-                enemies[i].pos.x = newX;
-                enemies[i].pos.y = newY;
-            }
-        }
+    /*         // update enemy if can see the player (simple enemy AI) */
+    /*         double angleToPlayer = rotate(player->dir, PI); */
+    /*         if (sprite.side == 1) angleToPlayer = rotate(angleToPlayer, angle); */
+    /*         else angleToPlayer = rotate(angleToPlayer, PI*2-angle); */
+    /*         double newX = enemies[i].pos.x + cos(angleToPlayer)/20.0; */
+    /*         double newY = enemies[i].pos.y + sin(angleToPlayer)/20.0; */
+    /*         if (is_in_bounds(map, (int)newX, (int)newY) && is_passable(map, (int)newX, (int)newY) && sprite.dist > 1) */
+    /*         { */
+    /*             enemies[i].pos.x = newX; */
+    /*             enemies[i].pos.y = newY; */
+    /*         } */
+    /*     } */
 
-        // sort the sprites by distance
-        qsort(&sprites[0], spriteCount, sizeof(Sprite), (const void*) sort_sprites);
+    /*     // sort the sprites by distance */
+    /*     qsort(&sprites[0], spriteCount, sizeof(Sprite), (const void*) sort_sprites); */
 
-        draw_start(3); // layer 3 - sprites (renderer target)
-        for (int i = 0; i < spriteCount; ++i)
-        {
-            Sprite sprite = sprites[i];
+    /*     draw_start(3); // layer 3 - sprites (renderer target) */
+    /*     for (int i = 0; i < spriteCount; ++i) */
+    /*     { */
+    /*         Sprite sprite = sprites[i]; */
 
-            // draw texture column by column, only if z value higher than wallZ
-            int textureOffsetX = sprite.entity->texture->xOffset;
-            int textureOffsetY = sprite.entity->texture->yOffset;
-            double step = (double)sprite.height / sprite.entity->texture->width;
-            for (int x = 0; x < sprite.entity->texture->width; ++x)
-            {
-                // protect drawing past screen edges
-                int screenColumn = (int) (sprite.screenPos.x + x*step);
-                if (screenColumn < 0 || screenColumn >= screenWidth) continue;
+    /*         // draw texture column by column, only if z value higher than wallZ */
+    /*         int textureOffsetX = sprite.entity->texture->xOffset; */
+    /*         int textureOffsetY = sprite.entity->texture->yOffset; */
+    /*         double step = (double)sprite.height / sprite.entity->texture->width; */
+    /*         for (int x = 0; x < sprite.entity->texture->width; ++x) */
+    /*         { */
+    /*             // protect drawing past screen edges */
+    /*             int screenColumn = (int) (sprite.screenPos.x + x*step); */
+    /*             if (screenColumn < 0 || screenColumn >= screenWidth) continue; */
 
-                // skip drawing over closer walls
-                if (wallZ[screenColumn] <= sprite.dist) continue;
+    /*             // skip drawing over closer walls */
+    /*             if (wallZ[screenColumn] <= sprite.dist) continue; */
 
-                // draw sprite
-                draw_texture(sprite.entity->texture->atlas->texture,
-                        textureOffsetX + x, textureOffsetY, 1, sprite.entity->texture->height,
-                        sprite.screenPos.x + x*step, sprite.screenPos.y, ceil(step), sprite.height);
-            }
-        }
-    }
-    // end draw enemies
+    /*             // draw sprite */
+    /*             draw_texture(sprite.entity->texture->atlas->texture, */
+    /*                     textureOffsetX + x, textureOffsetY, 1, sprite.entity->texture->height, */
+    /*                     sprite.screenPos.x + x*step, sprite.screenPos.y, ceil(step), sprite.height); */
+    /*         } */
+    /*     } */
+    /* } */
+    /* // end draw enemies */
 
-    // finish drawing
-    draw_update(3);
+    /* // finish drawing */
+    /* draw_update(3); */
 
     return 1;
 }

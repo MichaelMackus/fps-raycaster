@@ -1,0 +1,3 @@
+[submodule "lib/pixelgfx"]
+	path = lib/pixelgfx
+	url = https://github.com/MichaelMackus/pixelgfx.git

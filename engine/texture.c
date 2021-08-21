@@ -1,5 +1,39 @@
 #include "texture.h"
 
+int get_colors(Color *colors, const SDL_Surface *surface)
+{
+    Uint8 *rawPixels = surface->pixels;
+    Color *targetColor = colors;
+
+    for (int y = 0; y < surface->h; ++y)
+    {
+        for (int x = 0; x < surface->w; ++x)
+        {
+            // Get the single pixel. We use memcpy here in order to
+            // account for non-32bit color spaces. For example, if an image
+            // doesn't have an alpha channel, color values might be 24
+            // bits, so we need to copy 3 bytes (BytesPerPixel) into the 4
+            // bytes of (p of type Uint32) on the stack.
+            //
+            // NOTE: need to test this works for non-8bit formats
+            Uint32 p;
+            memcpy(&p, rawPixels, surface->format->BytesPerPixel);
+
+            SDL_GetRGBA(p,
+                    surface->format,
+                    &(targetColor->r),
+                    &(targetColor->g),
+                    &(targetColor->b),
+                    &(targetColor->a));
+
+            rawPixels += surface->format->BytesPerPixel;
+            targetColor ++;
+        }
+    }
+
+    return 0;
+}
+
 TextureAtlas* create_atlas(const char *fileName)
 {
     SDL_Surface *surface;
@@ -15,14 +49,14 @@ TextureAtlas* create_atlas(const char *fileName)
         if (surface == NULL)
             return NULL;
 
-        texture = SDL_CreateTextureFromSurface(get_renderer(), surface);
+        /* texture = SDL_CreateTextureFromSurface(get_renderer(), surface); */
 
-        if (texture == NULL)
-        {
-            SDL_FreeSurface(surface);
+        /* if (texture == NULL) */
+        /* { */
+        /*     SDL_FreeSurface(surface); */
 
-            return NULL;
-        }
+        /*     return NULL; */
+        /* } */
 
         // TODO is this necessary?
         /* // ensure format is RGBA with 32-bits for color manipulation */
@@ -177,3 +211,36 @@ int populate_atlas(TextureAtlas *atlas, int subtextureWidth, int subtextureHeigh
 }
 
 void free_subtexture(SubTexture *texture);
+
+int update_colors(Color *colors, const SDL_Surface *surface)
+{
+    // assert the surface format is valid TODO add functionality for other formats
+    if (surface->format->BytesPerPixel != 4)
+    {
+#ifdef GAME_DEBUG
+        printf("update_colors error: BytesPerPixel of surface does not equal 4!\n");
+#endif
+        return 1;
+    }
+
+    Uint32 *tmp = surface->pixels;
+
+    for (int y = 0; y < surface->h; ++y)
+    {
+        for (int x = 0; x < surface->w; ++x)
+        {
+            // it is important we do not use the format of the surface, since that could be different
+            const unsigned int pixelOffset = surface->w*y + x;
+            Uint32 p = SDL_MapRGBA(surface->format,
+                    colors[pixelOffset].r,
+                    colors[pixelOffset].g,
+                    colors[pixelOffset].b,
+                    colors[pixelOffset].a);
+
+            const unsigned int offset = (surface->pitch/4)*y + x;
+            tmp[offset] = p;
+        }
+    }
+
+    return 0;
+}

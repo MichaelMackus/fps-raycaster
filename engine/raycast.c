@@ -1,4 +1,3 @@
-#include "draw.h"
 #include "raycast.h"
 #include "entity.h"
 #include "map.h"
@@ -11,9 +10,10 @@ int screenHeight;
 double distanceToSurface = 0;
 Player *player = NULL;
 
-int init_raycast()
+int init_raycast(int w, int h)
 {
-    get_screen_dimensions(&screenWidth, &screenHeight);
+    screenWidth = w;
+    screenHeight = h;
 
     return 0;
 }
